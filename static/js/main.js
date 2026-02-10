@@ -689,6 +689,7 @@
         };
 
         // 计算并显示持仓统计
+        // 分基金涨跌明细：持仓金额 = 累计收益 + 持仓成本×持仓份额（累计收益=(净值-持仓成本)×持有份额）；加减仓通过更新「持仓金额-修改」后调用本函数刷新明细。
         function calculatePositionSummary() {
             let totalValue = 0;
             let estimatedGain = 0;
@@ -742,42 +743,65 @@
                     const dayGrowth = dayGrowthText !== 'N/A' ?
                         parseFloat(dayGrowthText.replace('%', '')) : 0;
 
-                    // 计算持仓价值（用于汇总与收益）
-                    const positionValue = shares * netValue;
+                    // 分基金涨跌明细-持仓金额 由「持仓金额-修改」中的持有份额与持仓成本按公式计算
+                    if (!window.fundHoldingData) window.fundHoldingData = {};
+                    let hold = window.fundHoldingData[fundCode];
+                    let holding_units = hold ? (parseFloat(hold.holding_units) || 0) : shares;
+                    let cost_per_unit = hold ? (parseFloat(hold.cost_per_unit) || 1) : 1;
+                    if (!hold) {
+                        window.fundHoldingData[fundCode] = { holding_units: holding_units, cost_per_unit: cost_per_unit };
+                    }
+                    // 累计收益 = (净值 - 持仓成本) × 持有份额；分基金涨跌明细-持仓金额 = 累计收益 + 持仓成本×持仓份额
+                    const cumulativeReturn = (netValue - cost_per_unit) * holding_units;
+                    const positionAmount = cumulativeReturn + cost_per_unit * holding_units;  // = 净值×持有份额，与公式一致
 
-                    // 计算预估涨跌（始终计算）
-                    const fundEstimatedGain = positionValue * estimatedGrowth / 100;
+                    // 计算预估涨跌、实际涨跌（均基于同一持仓金额）
+                    const fundEstimatedGain = positionAmount * estimatedGrowth / 100;
                     estimatedGain += fundEstimatedGain;
-
-                    // 计算实际涨跌
-                    // 逻辑：只有当净值日期是今天时（今日净值已更新），才计算实际涨跌
                     let fundActualGain = 0;
                     if (netValueDate === today) {
-                        // 今日净值已更新，计算实际收益
-                        fundActualGain = positionValue * dayGrowth / 100;
+                        fundActualGain = positionAmount * dayGrowth / 100;
                         actualGain += fundActualGain;
-                        settledValue += positionValue;
+                        settledValue += positionAmount;
                     }
 
                     // 获取板块数据
                     const sectors = window.fundSectorsData && window.fundSectorsData[fundCode] ? window.fundSectorsData[fundCode] : [];
-                    // 累计收益 = (净值 - 持仓成本) × 持有份额
-                    const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
-                    const holding_units = hold ? (parseFloat(hold.holding_units) || 0) : shares;
-                    const cost_per_unit = hold ? (parseFloat(hold.cost_per_unit) || 1) : 1;
-                    const cumulativeReturn = (netValue - cost_per_unit) * holding_units;
-                    // 持仓金额 = 净值 × 持有份额（总持仓金额 = 分基金涨跌明细中持仓金额列之和）
-                    const positionAmount = netValue * holding_units;
-                    totalValue += positionAmount;
+                    // 显示持仓金额：扣除未到账加仓、加上未到账减仓（与修改页一致）
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    let pendingAddSum = 0;
+                    try {
+                        const pendingRaw = localStorage.getItem('lan_fund_pending_adds');
+                        const pendingList = pendingRaw ? JSON.parse(pendingRaw) : [];
+                        const stillPending = pendingList.filter(function (p) { return p.settlementDate > todayStr; });
+                        if (stillPending.length !== pendingList.length) {
+                            localStorage.setItem('lan_fund_pending_adds', JSON.stringify(stillPending));
+                        }
+                        pendingAddSum = stillPending.filter(function (p) { return p.fundCode === fundCode; }).reduce(function (s, p) { return s + (p.amount || 0); }, 0);
+                    } catch (e) { /* ignore */ }
+                    let pendingReduceSum = 0;
+                    try {
+                        const reduceRaw = localStorage.getItem('lan_fund_pending_reduces');
+                        const reduceList = reduceRaw ? JSON.parse(reduceRaw) : [];
+                        const stillPendingReduce = reduceList.filter(function (p) { return p.settlementDate > todayStr; });
+                        if (stillPendingReduce.length !== reduceList.length) {
+                            localStorage.setItem('lan_fund_pending_reduces', JSON.stringify(stillPendingReduce));
+                        }
+                        pendingReduceSum = stillPendingReduce.filter(function (p) { return p.fundCode === fundCode; }).reduce(function (s, p) { return s + (p.amount || 0); }, 0);
+                    } catch (e) { /* ignore */ }
+                    const displayPositionAmount = Math.max(0, positionAmount - pendingAddSum + pendingReduceSum);
+                    totalValue += displayPositionAmount;
 
-                    // 收集每个基金的详细涨跌信息
+                    // 收集每个基金的详细涨跌信息（持仓金额=累计收益+持仓成本×份额，显示时扣未到账）
                     fundDetailsData.push({
                         code: fundCode,
                         name: fundName,
                         shares: shares,
-                        positionValue: positionValue,
-                        positionAmount: positionAmount,
+                        positionValue: positionAmount,
+                        positionAmount: displayPositionAmount,
                         netValue: netValue,
+                        netValueDate: netValueDate,
+                        dayGrowth: dayGrowth,
                         holding_units: holding_units,
                         cost_per_unit: cost_per_unit,
                         cumulativeReturn: cumulativeReturn,
@@ -913,7 +937,7 @@
                         const estSign = fund.estimatedGain >= 0 ? '+' : '-';
                         const actSign = fund.actualGain >= 0 ? '+' : '-';
                         const cumSign = (fund.cumulativeReturn || 0) >= 0 ? '+' : '-';
-                        // 持仓金额=净值×持有份额；累计收益=(净值-持仓成本)×持有份额
+                        // 持仓金额=累计收益+持仓成本×持仓份额；累计收益=(净值-持仓成本)×持有份额
                         return `
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding: 10px; text-align: center; vertical-align: middle; color: var(--accent); font-weight: 500;">${fund.code}</td>
@@ -924,6 +948,10 @@
                                 <td class="sensitive-value ${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;"><span class="real-value">${actSign}¥${Math.abs(fund.actualGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
                                 <td class="${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}${Math.abs(fund.actualGainPct).toFixed(2)}%</td>
                                 <td class="sensitive-value ${cumColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${cumColor}; font-weight: 500;"><span class="real-value">${cumSign}¥${Math.abs(fund.cumulativeReturn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
+                                <td style="padding: 10px; text-align: center; vertical-align: middle;">
+                                    <button type="button" class="btn-add-position" onclick="openAddPositionModal('${fund.code}')" style="margin-right: 6px; padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--accent); background: rgba(59, 130, 246, 0.15); color: var(--accent); cursor: pointer;">加仓</button>
+                                    <button type="button" class="btn-reduce-position" onclick="openReducePositionModal('${fund.code}')" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.15); color: var(--text-main); cursor: pointer;">减仓</button>
+                                </td>
                             </tr>
                         `;
                     }).join('');
@@ -1054,20 +1082,20 @@
             }
         }
 
-        // 累计收益修正弹窗
+        // 累计收益修正弹窗（与其它弹窗统一用 classList 控制显隐）
         function openCumulativeCorrectionModal() {
             const modal = document.getElementById('cumulativeCorrectionModal');
             const input = document.getElementById('cumulativeCorrectionInput');
             if (modal && input) {
                 const v = localStorage.getItem('lan_fund_cumulative_correction');
                 input.value = v !== null && v !== '' ? v : '';
-                modal.style.display = 'flex';
+                modal.classList.add('active');
                 input.focus();
             }
         }
         function closeCumulativeCorrectionModal() {
             const modal = document.getElementById('cumulativeCorrectionModal');
-            if (modal) modal.style.display = 'none';
+            if (modal) modal.classList.remove('active');
         }
         function applyCumulativeCorrection() {
             const input = document.getElementById('cumulativeCorrectionInput');
@@ -1167,8 +1195,8 @@
                 const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
                 const units = hold ? hold.holding_units : (window.getFundShares(fundCode) || 0);
                 const cost = hold ? hold.cost_per_unit : 1;
-                holdingInput.value = units > 0 ? units : '';
-                costInput.value = cost > 0 ? cost : '';
+                holdingInput.value = units > 0 ? (parseFloat(units) || 0).toFixed(2) : '';
+                costInput.value = cost > 0 ? (parseFloat(cost) || 1).toFixed(4) : '';
                 updateSharesModalResult();
             }
             if (fundCodeDisplay) fundCodeDisplay.textContent = fundCode;
@@ -1254,6 +1282,366 @@
         window.closeSharesModal = closeSharesModal;
         window.confirmShares = confirmShares;
         window.getFundShares = getFundShares;
+
+        // ==================== 同步加仓 / 减仓弹窗 ====================
+        let currentAddPositionFundCode = null;
+        let currentReducePositionFundCode = null;
+        let currentAddPositionTimeValue = null; // { date: 'YYYY-MM-DD', period: 'before15' | 'after15' }
+        let currentReducePositionTimeValue = null;
+
+        window.openAddPositionModal = function(fundCode) {
+            currentAddPositionFundCode = fundCode;
+            currentAddPositionTimeValue = null;
+            const fund = (window.fundDetailsData || []).find(f => f.code === fundCode);
+            const modal = document.getElementById('addPositionModal');
+            if (!modal) return;
+            const nameEl = document.getElementById('addPositionFundName');
+            const codeEl = document.getElementById('addPositionFundCode');
+            const netValEl = document.getElementById('addPositionNetValue');
+            const netDateEl = document.getElementById('addPositionNetValueDate');
+            const pctEl = document.getElementById('addPositionNetValuePct');
+            const amountInput = document.getElementById('addPositionAmount');
+            const timeText = document.getElementById('addPositionTimeText');
+            if (nameEl) nameEl.textContent = fund ? fund.name : '';
+            if (codeEl) codeEl.textContent = fundCode || '';
+            if (netValEl && fund) netValEl.textContent = fund.netValue != null ? fund.netValue.toFixed(4) : '--';
+            if (netDateEl && fund && fund.netValueDate) netDateEl.textContent = '(' + formatNetValueDate(fund.netValueDate) + ')';
+            if (pctEl && fund && fund.estimatedGainPct != null) {
+                const pct = fund.estimatedGainPct;
+                pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                pctEl.style.color = pct >= 0 ? '#22c55e' : '#ef4444';
+            }
+            if (amountInput) amountInput.value = '';
+            if (timeText) timeText.textContent = '请选择时间';
+            const addConfirmBtn = document.getElementById('addPositionConfirmBtn');
+            if (addConfirmBtn) addConfirmBtn.disabled = true;
+            const feeRadios = document.querySelectorAll('input[name="addPositionFeeRate"]');
+            if (feeRadios.length) feeRadios[0].checked = true;
+            window.updateAddPositionFee && window.updateAddPositionFee();
+            modal.classList.add('active');
+        };
+
+        function formatNetValueDate(ymd) {
+            if (!ymd) return '';
+            const parts = ymd.split('-');
+            if (parts.length === 3) return parts[1] + '-' + parts[2];
+            return ymd;
+        }
+
+        window.closeAddPositionModal = function() {
+            const modal = document.getElementById('addPositionModal');
+            if (modal) modal.classList.remove('active');
+            currentAddPositionFundCode = null;
+            currentAddPositionTimeValue = null;
+        };
+
+        function getAddPositionFeeRate() {
+            const r = document.querySelector('input[name="addPositionFeeRate"]:checked');
+            return r ? parseFloat(r.value) / 100 : 0;
+        }
+        function getReducePositionFeeRate() {
+            const r = document.querySelector('input[name="reducePositionFeeRate"]:checked');
+            return r ? parseFloat(r.value) / 100 : 0;
+        }
+        window.updateAddPositionFee = function() {
+            const amountInput = document.getElementById('addPositionAmount');
+            const feeEl = document.getElementById('addPositionFee');
+            if (!feeEl) return;
+            const amount = parseFloat(amountInput && amountInput.value) || 0;
+            const fee = amount * getAddPositionFeeRate();
+            feeEl.textContent = fee.toFixed(2);
+        };
+        window.updateReducePositionFee = function() {
+            const amountInput = document.getElementById('reducePositionAmount');
+            const feeEl = document.getElementById('reducePositionFee');
+            if (!feeEl) return;
+            const amount = parseFloat(amountInput && amountInput.value) || 0;
+            const fee = amount * getReducePositionFeeRate();
+            feeEl.textContent = fee.toFixed(2);
+        };
+        document.body.addEventListener('change', function(e) {
+            if (e.target && e.target.name === 'addPositionFeeRate') { window.updateAddPositionFee && window.updateAddPositionFee(); }
+            if (e.target && e.target.name === 'reducePositionFeeRate') { window.updateReducePositionFee && window.updateReducePositionFee(); }
+        });
+
+        window.openAddPositionTimePicker = function() {
+            const overlay = document.getElementById('addPositionTimePickerOverlay');
+            const picker = document.getElementById('addPositionTimePicker');
+            const optionsEl = document.getElementById('addPositionTimeOptions');
+            if (!overlay || !picker || !optionsEl) return;
+            const today = new Date();
+            const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            let html = '';
+            for (let d = 6; d >= 0; d--) {
+                const dt = new Date(today);
+                dt.setDate(dt.getDate() - d);
+                const y = dt.getFullYear(), m = dt.getMonth() + 1, day = dt.getDate();
+                const ymd = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                const week = dayNames[dt.getDay()];
+                const dateStr = String(m).padStart(2, '0') + '月' + String(day).padStart(2, '0') + '日(' + week + ')';
+                if (d === 0) {
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
+                } else {
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
+                }
+            }
+            optionsEl.innerHTML = html;
+            optionsEl.querySelectorAll('.add-position-time-option').forEach(el => {
+                el.addEventListener('click', function() {
+                    optionsEl.querySelectorAll('.add-position-time-option').forEach(o => o.style.background = '');
+                    this.style.background = 'rgba(59, 130, 246, 0.15)';
+                    currentAddPositionTimeValue = { date: this.dataset.date, period: this.dataset.period };
+                });
+            });
+            overlay.style.display = 'block';
+            picker.style.display = 'flex';
+        };
+
+        window.closeAddPositionTimePicker = function() {
+            const overlay = document.getElementById('addPositionTimePickerOverlay');
+            const picker = document.getElementById('addPositionTimePicker');
+            if (overlay) overlay.style.display = 'none';
+            if (picker) picker.style.display = 'none';
+        };
+
+        window.confirmAddPositionTime = function() {
+            const timeText = document.getElementById('addPositionTimeText');
+            if (timeText && currentAddPositionTimeValue) {
+                const d = currentAddPositionTimeValue.date;
+                const parts = d.split('-');
+                const str = parts[1] + '月' + parts[2] + '日 ' + (currentAddPositionTimeValue.period === 'after15' ? '下午3点后' : '下午3点前');
+                timeText.textContent = str;
+                const addConfirmBtn = document.getElementById('addPositionConfirmBtn');
+                if (addConfirmBtn) addConfirmBtn.disabled = false;
+            }
+            window.closeAddPositionTimePicker();
+        };
+
+        function addDaysToDate(ymd, days) {
+            const d = new Date(ymd + 'T12:00:00');
+            d.setDate(d.getDate() + days);
+            return d.toISOString().slice(0, 10);
+        }
+
+        // 第二：加减仓成功后共用同一套份额更新逻辑（先更新「持仓金额-修改」的持有份额与持仓成本，再刷新分基金涨跌明细）
+        function applyHoldingAfterPositionChange(fundCode, newUnits, newCost) {
+            if (!window.fundHoldingData) window.fundHoldingData = {};
+            window.fundHoldingData[fundCode] = { holding_units: newUnits, cost_per_unit: newCost };
+            if (!window.fundSharesData) window.fundSharesData = {};
+            window.fundSharesData[fundCode] = newUnits * newCost;
+            if (typeof updateSharesButton === 'function') updateSharesButton(fundCode, newUnits * newCost);
+            if (typeof calculatePositionSummary === 'function') calculatePositionSummary();
+            if (currentSharesFundCode === fundCode) {
+                const holdingInput = document.getElementById('sharesModalHoldingUnits');
+                const costInput = document.getElementById('sharesModalCostPerUnit');
+                if (holdingInput && costInput) {
+                    holdingInput.value = newUnits > 0 ? (parseFloat(newUnits)).toFixed(2) : '';
+                    costInput.value = newCost > 0 ? (parseFloat(newCost)).toFixed(4) : '';
+                    if (typeof window.updateSharesModalResult === 'function') window.updateSharesModalResult();
+                }
+            }
+        }
+
+        window.confirmAddPosition = async function() {
+            if (!currentAddPositionFundCode) return;
+            const amountInput = document.getElementById('addPositionAmount');
+            const amount = parseFloat(amountInput && amountInput.value) || 0;
+            const hasTime = currentAddPositionTimeValue && currentAddPositionTimeValue.date;
+            if (amount <= 0 || !hasTime) {
+                alert(amount <= 0 && !hasTime ? '请填写已买入金额并选择买入时间' : (amount <= 0 ? '请填写已买入金额' : '请选择买入时间'));
+                return;
+            }
+            const fund = (window.fundDetailsData || []).find(f => f.code === currentAddPositionFundCode);
+            const hold = window.fundHoldingData && window.fundHoldingData[currentAddPositionFundCode];
+            const oldUnits = hold ? (parseFloat(hold.holding_units) || 0) : (fund ? fund.holding_units : 0);
+            const oldCost = hold ? (parseFloat(hold.cost_per_unit) || 1) : (fund ? fund.cost_per_unit : 1);
+            const netValue = fund && fund.netValue != null ? fund.netValue : 1;
+            const addUnits = amount / netValue;
+            const newUnits = oldUnits + addUnits;
+            const newCost = newUnits > 0 ? (oldUnits * oldCost + amount) / newUnits : oldCost;
+            // 到账日：当天三点前 -> 次日到账(T+1)；当天三点后 -> 次日的第二天到账(T+2)
+            const buyDate = (currentAddPositionTimeValue && currentAddPositionTimeValue.date) ? currentAddPositionTimeValue.date : new Date().toISOString().slice(0, 10);
+            const isAfter15 = currentAddPositionTimeValue && currentAddPositionTimeValue.period === 'after15';
+            const settlementDate = addDaysToDate(buyDate, isAfter15 ? 2 : 1);
+            try {
+                const res = await fetch('/api/fund/shares', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: currentAddPositionFundCode,
+                        holding_units: newUnits,
+                        cost_per_unit: newCost,
+                        record_op: 'add',
+                        amount: amount,
+                        trade_date: buyDate,
+                        period: isAfter15 ? 'after15' : 'before15',
+                        fund_name: fund ? fund.name : ''
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const pendingAdds = (function () {
+                        try {
+                            const raw = localStorage.getItem('lan_fund_pending_adds');
+                            return raw ? JSON.parse(raw) : [];
+                        } catch (e) { return []; }
+                    })();
+                    pendingAdds.push({ fundCode: currentAddPositionFundCode, amount: amount, settlementDate: settlementDate });
+                    try { localStorage.setItem('lan_fund_pending_adds', JSON.stringify(pendingAdds)); } catch (e) { /* ignore */ }
+                    applyHoldingAfterPositionChange(currentAddPositionFundCode, newUnits, newCost);
+                    window.closeAddPositionModal();
+                } else {
+                    alert(result.message || '加仓失败');
+                }
+            } catch (e) {
+                alert('加仓失败: ' + e.message);
+            }
+        };
+
+        window.openReducePositionModal = function(fundCode) {
+            currentReducePositionFundCode = fundCode;
+            currentReducePositionTimeValue = null;
+            const fund = (window.fundDetailsData || []).find(f => f.code === fundCode);
+            const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
+            const modal = document.getElementById('reducePositionModal');
+            if (!modal) return;
+            const nameEl = document.getElementById('reducePositionFundName');
+            const codeEl = document.getElementById('reducePositionFundCode');
+            const netEl = document.getElementById('reducePositionNetValue');
+            const unitsEl = document.getElementById('reducePositionUnits');
+            const amountInput = document.getElementById('reducePositionAmount');
+            const timeText = document.getElementById('reducePositionTimeText');
+            if (nameEl) nameEl.textContent = fund ? fund.name : '';
+            if (codeEl) codeEl.textContent = fundCode || '';
+            if (netEl && fund) netEl.textContent = fund.netValue != null ? fund.netValue.toFixed(4) : '--';
+            const units = hold ? (parseFloat(hold.holding_units) || 0) : (fund ? fund.holding_units : 0);
+            if (unitsEl) unitsEl.textContent = units.toFixed(2);
+            if (amountInput) amountInput.value = '';
+            if (timeText) timeText.textContent = '请选择时间';
+            const reduceConfirmBtn = document.getElementById('reducePositionConfirmBtn');
+            if (reduceConfirmBtn) reduceConfirmBtn.disabled = true;
+            const feeRadios = document.querySelectorAll('input[name="reducePositionFeeRate"]');
+            if (feeRadios.length) feeRadios[0].checked = true;
+            window.updateReducePositionFee && window.updateReducePositionFee();
+            modal.classList.add('active');
+        };
+
+        window.closeReducePositionModal = function() {
+            const modal = document.getElementById('reducePositionModal');
+            if (modal) modal.classList.remove('active');
+            currentReducePositionFundCode = null;
+            currentReducePositionTimeValue = null;
+        };
+
+        window.openReducePositionTimePicker = function() {
+            const overlay = document.getElementById('reducePositionTimePickerOverlay');
+            const picker = document.getElementById('reducePositionTimePicker');
+            const optionsEl = document.getElementById('reducePositionTimeOptions');
+            if (!overlay || !picker || !optionsEl) return;
+            const today = new Date();
+            const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            let html = '';
+            for (let d = 6; d >= 0; d--) {
+                const dt = new Date(today);
+                dt.setDate(dt.getDate() - d);
+                const y = dt.getFullYear(), m = dt.getMonth() + 1, day = dt.getDate();
+                const ymd = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                const week = dayNames[dt.getDay()];
+                const dateStr = String(m).padStart(2, '0') + '月' + String(day).padStart(2, '0') + '日(' + week + ')';
+                html += '<div class="reduce-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
+                html += '<div class="reduce-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
+            }
+            optionsEl.innerHTML = html;
+            optionsEl.querySelectorAll('.reduce-position-time-option').forEach(el => {
+                el.addEventListener('click', function() {
+                    optionsEl.querySelectorAll('.reduce-position-time-option').forEach(o => o.style.background = '');
+                    this.style.background = 'rgba(59, 130, 246, 0.15)';
+                    currentReducePositionTimeValue = { date: this.dataset.date, period: this.dataset.period };
+                });
+            });
+            overlay.style.display = 'block';
+            picker.style.display = 'flex';
+        };
+
+        window.closeReducePositionTimePicker = function() {
+            const overlay = document.getElementById('reducePositionTimePickerOverlay');
+            const picker = document.getElementById('reducePositionTimePicker');
+            if (overlay) overlay.style.display = 'none';
+            if (picker) picker.style.display = 'none';
+        };
+
+        window.confirmReducePositionTime = function() {
+            const timeText = document.getElementById('reducePositionTimeText');
+            if (timeText && currentReducePositionTimeValue) {
+                const d = currentReducePositionTimeValue.date;
+                const parts = d.split('-');
+                const str = parts[1] + '月' + parts[2] + '日 ' + (currentReducePositionTimeValue.period === 'after15' ? '下午3点后' : '下午3点前');
+                timeText.textContent = str;
+                const reduceConfirmBtn = document.getElementById('reducePositionConfirmBtn');
+                if (reduceConfirmBtn) reduceConfirmBtn.disabled = false;
+            }
+            window.closeReducePositionTimePicker();
+        };
+
+        window.confirmReducePosition = async function() {
+            const reduceCode = currentReducePositionFundCode;
+            if (!reduceCode) return;
+            const amountInput = document.getElementById('reducePositionAmount');
+            const amount = parseFloat(amountInput && amountInput.value) || 0;
+            const hasTime = currentReducePositionTimeValue && currentReducePositionTimeValue.date;
+            if (amount <= 0 || !hasTime) {
+                alert(amount <= 0 && !hasTime ? '请填写减仓金额并选择卖出时间' : (amount <= 0 ? '请填写减仓金额' : '请选择卖出时间'));
+                return;
+            }
+            const fund = (window.fundDetailsData || []).find(f => f.code === reduceCode);
+            const hold = window.fundHoldingData && window.fundHoldingData[reduceCode];
+            const oldUnits = hold ? (parseFloat(hold.holding_units) || 0) : (fund ? fund.holding_units : 0);
+            const oldCost = hold ? (parseFloat(hold.cost_per_unit) || 1) : (fund ? fund.cost_per_unit : 1);
+            const netValue = fund && fund.netValue != null ? fund.netValue : 1;
+            const reduceUnits = amount / netValue;
+            let newUnits = Math.max(0, oldUnits - reduceUnits);
+            if (newUnits < 1e-6) newUnits = 0;
+            const newCost = newUnits > 0 ? oldCost : 1;
+            // 到账日：当天三点前 -> 次日到账(T+1)；当天三点后 -> 次日的第二天到账(T+2)
+            const sellDate = (currentReducePositionTimeValue && currentReducePositionTimeValue.date) ? currentReducePositionTimeValue.date : new Date().toISOString().slice(0, 10);
+            const isAfter15 = currentReducePositionTimeValue && currentReducePositionTimeValue.period === 'after15';
+            const settlementDate = addDaysToDate(sellDate, isAfter15 ? 2 : 1);
+            try {
+                const res = await fetch('/api/fund/shares', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: reduceCode,
+                        holding_units: newUnits,
+                        cost_per_unit: newCost,
+                        record_op: 'reduce',
+                        amount: amount,
+                        trade_date: sellDate,
+                        period: isAfter15 ? 'after15' : 'before15',
+                        fund_name: fund ? fund.name : ''
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const pendingReduces = (function () {
+                        try {
+                            const raw = localStorage.getItem('lan_fund_pending_reduces');
+                            return raw ? JSON.parse(raw) : [];
+                        } catch (e) { return []; }
+                    })();
+                    pendingReduces.push({ fundCode: reduceCode, amount: amount, settlementDate: settlementDate });
+                    try { localStorage.setItem('lan_fund_pending_reduces', JSON.stringify(pendingReduces)); } catch (e) { /* ignore */ }
+                    applyHoldingAfterPositionChange(reduceCode, newUnits, newCost);
+                    window.closeReducePositionModal();
+                } else {
+                    alert(result.message || '减仓失败');
+                }
+            } catch (e) {
+                alert('减仓失败: ' + e.message);
+            }
+        };
 
         // 事件委托：点击「设置/修改」持仓按钮时打开弹窗（避免内联 onclick 未生效）
         document.addEventListener('click', function(e) {
