@@ -111,27 +111,24 @@
                     return;
                 }
 
-                // Check for percentage format (including cases like +0.15% or -0.15%)
+                // 百分比格式：以数值正负为准，与下方「纯 +/- 前缀」逻辑一致（负→negative/绿，正→positive/红）
                 if (text.includes('%')) {
-                    // Special handling for "X/Y Z%" format (近30天列) - extract the last percentage
                     let cleanText;
                     if (text.includes('/') && text.includes(' ')) {
-                        // Format like "10/21 -1.14%" - extract the percentage part after space
                         const parts = text.split(' ');
-                        const percentPart = parts[parts.length - 1]; // Get last part
+                        const percentPart = parts[parts.length - 1];
                         cleanText = percentPart.replace(/[%,亿万手]/g, '');
                     } else {
                         cleanText = text.replace(/[%,亿万手]/g, '');
                     }
                     const val = parseFloat(cleanText);
-
                     if (!isNaN(val)) {
-                        if (val < 0 || text.includes('-')) {
-                            cell.classList.add('negative');  // Green for negative
-                        } else if (val > 0 || text.includes('+')) {
-                            cell.classList.add('positive');   // Red for positive
+                        if (val < 0) {
+                            cell.classList.add('negative');
+                        } else if (val > 0) {
+                            cell.classList.add('positive');
                         }
-                        // val === 0 gets no color (neutral)
+                        // val === 0 不染色（中性）
                     }
                 }
                 // Check for values starting with + or - (not percentages)
