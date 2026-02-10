@@ -373,9 +373,15 @@
             <span>或</span>
         </div>
 
+        {% if not register_disabled %}
         <div class="register-link">
             还没有账户？ <a href="/register">立即注册</a>
         </div>
+        {% else %}
+        <div class="register-link" style="color: #8b949e; font-size: 13px;">
+            注册已关闭，请联系管理员获取账号
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>

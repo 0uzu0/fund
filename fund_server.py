@@ -8,11 +8,11 @@ import json
 import urllib3
 from dotenv import load_dotenv
 from flask import Flask, request, render_template, redirect, url_for, jsonify, \
-    send_file
+    send_file, session
 from loguru import logger
 
 import fund
-from src.auth import login_required, get_current_user_id, get_current_username, login_user, logout_user
+from src.auth import login_required, admin_required, get_current_user_id, get_current_username, is_admin, login_user, logout_user
 from src.database import Database
 from src.module_html import enhance_fund_tab_content
 
@@ -58,12 +58,12 @@ def login():
                         # 验证token是否匹配
                         expected_hash = hashlib.sha256(f"{username}:{user['password_hash']}".encode()).hexdigest()
                         if token_hash == expected_hash:
-                            login_user(user['id'], username)
+                            login_user(user['id'], username, is_admin=bool(user.get('is_admin', 0)))
                             return redirect(url_for('get_fund'))
             except Exception as e:
                 logger.error(f"Auto-login failed: {e}")
 
-        return render_template('login.html')
+        return render_template('login.html', register_disabled=True)
 
     # POST request - handle login
     username = request.form.get('username', '').strip()
@@ -71,11 +71,12 @@ def login():
     remember_me = request.form.get('remember_me') == '1'
 
     if not username or not password:
-        return render_template('login.html', error='请输入用户名和密码')
+        return render_template('login.html', error='请输入用户名和密码', register_disabled=True)
 
     success, user_id = db.verify_password(username, password)
     if success:
-        login_user(user_id, username)
+        user = db.get_user_by_id(user_id)
+        login_user(user_id, username, is_admin=bool(user.get('is_admin', 0)))
         response = redirect(url_for('get_fund'))
 
         # 如果勾选了记住我，设置cookie（7天有效）
@@ -89,41 +90,15 @@ def login():
 
         return response
     else:
-        return render_template('login.html', error='用户名或密码错误')
+        return render_template('login.html', error='用户名或密码错误', register_disabled=True)
 
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """注册页面和处理"""
+    """注册已关闭：仅管理员可添加用户"""
     if request.method == 'GET':
-        return render_template('register.html')
-
-    # POST request - handle registration
-    username = request.form.get('username', '').strip()
-    password = request.form.get('password', '')
-    confirm_password = request.form.get('confirm_password', '')
-
-    # 验证输入
-    if not username or not password:
-        return render_template('register.html', error='请输入用户名和密码')
-
-    if len(username) < 3 or len(username) > 20:
-        return render_template('register.html', error='用户名长度应为3-20个字符')
-
-    if len(password) < 6:
-        return render_template('register.html', error='密码长度至少为6个字符')
-
-    if password != confirm_password:
-        return render_template('register.html', error='两次输入的密码不一致')
-
-    # 创建用户
-    success, message, user_id = db.create_user(username, password)
-    if success:
-        # 注册成功，自动登录
-        login_user(user_id, username)
-        return redirect(url_for('get_fund'))
-    else:
-        return render_template('register.html', error=message)
+        return redirect(url_for('login', register_disabled=1))
+    return redirect(url_for('login', register_disabled=1))
 
 
 @app.route('/logout')
@@ -134,6 +109,234 @@ def logout():
     # 清除记住我的cookie
     response.set_cookie('remember_token', '', max_age=0)
     return response
+
+
+# ==================== API: Auth（供 React 前端使用） ====================
+
+@app.route('/api/auth/me', methods=['GET'])
+def api_auth_me():
+    """获取当前登录用户信息，未登录返回 401"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'unauthorized'}), 401
+    return jsonify({
+        'username': session.get('username', ''),
+        'is_admin': bool(session.get('is_admin', False)),
+    })
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_auth_logout():
+    """登出（清除 session），供 React 前端调用"""
+    logout_user()
+    response = jsonify({'success': True})
+    response.set_cookie('remember_token', '', max_age=0)
+    return response
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_auth_login():
+    """JSON 登录，设置 session，返回用户信息"""
+    try:
+        data = request.get_json() or {}
+        username = (data.get('username') or '').strip()
+        password = data.get('password', '')
+        remember_me = data.get('remember_me', False)
+
+        if not username or not password:
+            return jsonify({'success': False, 'message': '请输入用户名和密码'}), 400
+
+        success, user_id = db.verify_password(username, password)
+        if not success:
+            return jsonify({'success': False, 'message': '用户名或密码错误'}), 401
+
+        user = db.get_user_by_id(user_id)
+        login_user(user_id, username, is_admin=bool(user.get('is_admin', 0)))
+
+        response = jsonify({
+            'success': True,
+            'username': username,
+            'is_admin': bool(user.get('is_admin', 0)),
+        })
+        if remember_me:
+            import hashlib
+            u = db.get_user_by_username(username)
+            token_hash = hashlib.sha256(f"{username}:{u['password_hash']}".encode()).hexdigest()
+            remember_token = f"{username}:{token_hash}"
+            response.set_cookie(
+                'remember_token', remember_token,
+                max_age=7 * 24 * 60 * 60, httponly=True, samesite='Lax'
+            )
+        return response
+    except Exception as e:
+        logger.error(f"API login failed: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== API: Admin 用户列表（JSON，供 React 使用） ====================
+
+@app.route('/api/admin/users', methods=['GET'])
+@login_required
+@admin_required
+def api_admin_users_list():
+    """返回用户列表 JSON"""
+    try:
+        users = db.list_users()
+        # 转为可 JSON 序列化（sqlite3.Row / dict 中可能有不可序列化类型）
+        out = []
+        for u in users:
+            out.append({
+                'id': u['id'],
+                'username': u['username'],
+                'is_admin': bool(u.get('is_admin', 0)),
+                'created_at': str(u.get('created_at', '')),
+            })
+        return jsonify({'users': out})
+    except Exception as e:
+        logger.error(f"API admin users list failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Admin: 用户管理（仅管理员） ====================
+
+def _admin_users_context(users=None, error=None, success=None):
+    if users is None:
+        users = db.list_users()
+    return {
+        'users': users,
+        'error': error,
+        'success': success,
+        'current_username': get_current_username(),
+    }
+
+
+def _render_admin_users_page(**context):
+    """渲染带左侧 sidebar 的用户管理页"""
+    from src.module_html import get_admin_users_page_html
+    content = render_template('admin_users_content.html', **_admin_users_context(**context))
+    return get_admin_users_page_html(
+        content,
+        username=get_current_username(),
+        is_admin=True
+    )
+
+
+@app.route('/admin/users', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_users():
+    """用户管理：列表 + 新增用户（带左侧 sidebar 布局）"""
+    if request.method == 'GET':
+        return _render_admin_users_page()
+
+    # POST: 新增用户
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    if not username or not password:
+        return _render_admin_users_page(error='请输入用户名和密码')
+
+    if len(username) < 3 or len(username) > 20:
+        return _render_admin_users_page(error='用户名长度应为 3–20 个字符')
+
+    if len(password) < 6:
+        return _render_admin_users_page(error='密码长度至少为 6 个字符')
+
+    if password != confirm_password:
+        return _render_admin_users_page(error='两次输入的密码不一致')
+
+    success, message, _ = db.create_user(username, password, is_admin=False)
+    if success:
+        return _render_admin_users_page(success=f'用户 {username} 已创建成功')
+    return _render_admin_users_page(error=message)
+
+
+@app.route('/admin/add-user', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_add_user():
+    """兼容旧链接：重定向到用户管理"""
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/profile', methods=['GET'])
+@login_required
+@admin_required
+def admin_profile():
+    """修改管理员账号（用户名、密码）"""
+    user = db.get_user_by_id(get_current_user_id())
+    return render_template('admin_profile.html', username=user['username'] if user else '')
+
+
+@app.route('/api/admin/delete-user', methods=['POST'])
+@login_required
+@admin_required
+def api_admin_delete_user():
+    """管理员删除用户（JSON）"""
+    try:
+        data = request.json or {}
+        user_id = data.get('user_id')
+        username = (data.get('username') or '').strip()
+        if user_id is None and not username:
+            return jsonify({'success': False, 'message': '请提供 user_id 或 username'}), 400
+        current_id = get_current_user_id()
+        if user_id is not None and int(user_id) == current_id:
+            return jsonify({'success': False, 'message': '不能删除当前登录账号'}), 400
+        success, message = db.delete_user(user_id=user_id if user_id is not None else None, username=username or None)
+        if success:
+            return jsonify({'success': True, 'message': message})
+        return jsonify({'success': False, 'message': message}), 400
+    except Exception as e:
+        logger.error(f"Admin delete user failed: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/admin/add-user', methods=['POST'])
+@login_required
+@admin_required
+def api_admin_add_user():
+    """管理员添加用户（JSON API）"""
+    try:
+        data = request.json or {}
+        username = (data.get('username') or '').strip()
+        password = data.get('password', '')
+
+        if not username or not password:
+            return jsonify({'success': False, 'message': '请输入用户名和密码'}), 400
+        if len(username) < 3 or len(username) > 20:
+            return jsonify({'success': False, 'message': '用户名长度应为 3–20 个字符'}), 400
+        if len(password) < 6:
+            return jsonify({'success': False, 'message': '密码长度至少为 6 个字符'}), 400
+
+        success, message, user_id = db.create_user(username, password, is_admin=False)
+        if success:
+            return jsonify({'success': True, 'message': f'用户 {username} 已创建', 'user_id': user_id})
+        return jsonify({'success': False, 'message': message}), 400
+    except Exception as e:
+        logger.error(f"Admin add user failed: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/admin/update-profile', methods=['POST'])
+@login_required
+@admin_required
+def api_admin_update_profile():
+    """管理员修改自己的用户名和/或密码"""
+    try:
+        data = request.json or {}
+        new_username = (data.get('new_username') or '').strip() or None
+        new_password = (data.get('new_password') or '').strip() or None
+        user_id = get_current_user_id()
+        success, message = db.update_user_credentials(user_id, new_username=new_username, new_password=new_password)
+        if not success:
+            return jsonify({'success': False, 'message': message}), 400
+        # 若修改了用户名，更新 session
+        if new_username:
+            session['username'] = new_username
+        return jsonify({'success': True, 'message': message})
+    except Exception as e:
+        logger.error(f"Admin update profile failed: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/fund/sector', methods=['GET'])
@@ -183,31 +386,6 @@ def api_fund_delete():
     except Exception as e:
         logger.error(f"删除基金失败: {e}")
         return {'success': False, 'message': f'删除失败: {str(e)}'}
-
-
-@app.route('/api/fund/hold', methods=['POST'])
-@login_required
-def api_fund_hold():
-    """设置/取消持有标记"""
-    try:
-        data = request.json
-        codes = data.get('codes', '')
-        hold = data.get('hold', True)
-        if not codes:
-            return {'success': False, 'message': '请提供基金代码'}
-        user_id = get_current_user_id()
-        importlib.reload(fund)
-        my_fund = fund.LanFund(user_id=user_id, db=db)
-        code_list = [c.strip() for c in codes.split(',')]
-        for code in code_list:
-            if code in my_fund.CACHE_MAP:
-                my_fund.CACHE_MAP[code]['is_hold'] = hold
-        my_fund.save_cache()
-        action = '标记持有' if hold else '取消持有'
-        return {'success': True, 'message': f'已{action}: {codes}'}
-    except Exception as e:
-        logger.error(f"设置持有标记失败: {e}")
-        return {'success': False, 'message': f'操作失败: {str(e)}'}
 
 
 @app.route('/api/fund/sector', methods=['POST'])
@@ -333,37 +511,49 @@ def api_fund_download():
 @app.route('/api/fund/shares', methods=['POST'])
 @login_required
 def api_fund_shares():
-    """更新基金持仓份额"""
+    """更新基金持仓：支持 持有份额+持仓成本（持仓份额=持有份额×持仓成本），兼容仅传 shares"""
     try:
         data = request.json
         code = data.get('code', '').strip()
-        shares = data.get('shares', 0)
+        holding_units = data.get('holding_units')
+        cost_per_unit = data.get('cost_per_unit')
+        shares = data.get('shares')
 
         if not code:
             return {'success': False, 'message': '请提供基金代码'}
 
-        try:
-            shares = float(shares)
-            if shares < 0:
-                return {'success': False, 'message': '份额不能为负数'}
-        except (ValueError, TypeError):
-            return {'success': False, 'message': '份额格式错误'}
+        if holding_units is not None and cost_per_unit is not None:
+            try:
+                holding_units = float(holding_units)
+                cost_per_unit = float(cost_per_unit)
+                if holding_units < 0 or cost_per_unit < 0:
+                    return {'success': False, 'message': '持有份额与持仓成本不能为负数'}
+            except (ValueError, TypeError):
+                return {'success': False, 'message': '持有份额或持仓成本格式错误'}
+            shares = holding_units * cost_per_unit
+        else:
+            try:
+                shares = float(shares) if shares is not None else 0
+                if shares < 0:
+                    return {'success': False, 'message': '份额不能为负数'}
+            except (ValueError, TypeError):
+                return {'success': False, 'message': '份额格式错误'}
+            holding_units = shares
+            cost_per_unit = 1.0
 
         user_id = get_current_user_id()
-        success = db.update_fund_shares(user_id, code, shares)
+        success = db.update_fund_holding(user_id, code, holding_units, cost_per_unit)
 
         if success:
-            # 如果份额>0，自动标记为持有
             if shares > 0:
                 fund_map = db.get_user_funds(user_id)
                 if code in fund_map:
-                    fund_map[code]['is_hold'] = True
                     fund_map[code]['shares'] = shares
+                    fund_map[code]['holding_units'] = holding_units
+                    fund_map[code]['cost_per_unit'] = cost_per_unit
                     db.save_user_funds(user_id, fund_map)
-
-            return {'success': True, 'message': f'已更新份额: {shares}'}
-        else:
-            return {'success': False, 'message': '更新失败，基金不存在'}
+            return {'success': True, 'message': '已更新持仓金额', 'shares': shares, 'holding_units': holding_units, 'cost_per_unit': cost_per_unit}
+        return {'success': False, 'message': '更新失败，基金不存在'}
 
     except Exception as e:
         logger.error(f"更新份额失败: {e}")
@@ -810,7 +1000,7 @@ def get_market():
         news_content = f"<p style='color:#f44336;'>加载失败: {str(e)}</p>"
 
     from src.module_html import get_news_page_html
-    html = get_news_page_html(news_content, username=get_current_username())
+    html = get_news_page_html(news_content, username=get_current_username(), is_admin=is_admin())
     return html
 
 
@@ -843,7 +1033,7 @@ def get_precious_metals():
         precious_metals_data['history'] = f"<p style='color:#f44336;'>加载失败: {str(e)}</p>"
 
     from src.module_html import get_precious_metals_page_html
-    html = get_precious_metals_page_html(precious_metals_data, username=get_current_username())
+    html = get_precious_metals_page_html(precious_metals_data, username=get_current_username(), is_admin=is_admin())
     return html
 
 
@@ -888,7 +1078,8 @@ def get_market_indices():
         market_charts=market_charts,
         chart_data=chart_data,
         timing_data=chart_data.get('timing'),
-        username=get_current_username()
+        username=get_current_username(),
+        is_admin=is_admin()
     )
     return html
 
@@ -967,7 +1158,8 @@ def get_portfolio():
         fund_map=my_fund.CACHE_MAP,
         fund_chart_data=fund_chart_data,
         fund_chart_info=fund_chart_info,
-        username=get_current_username()
+        username=get_current_username(),
+        is_admin=is_admin()
     )
     return html
 
@@ -1050,7 +1242,8 @@ def get_sectors():
         sectors_content=sectors_content,
         select_fund_content=select_fund_content,
         fund_map=my_fund.CACHE_MAP,
-        username=get_current_username()
+        username=get_current_username(),
+        is_admin=is_admin()
     )
     return html
 

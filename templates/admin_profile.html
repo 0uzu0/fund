@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修改管理员账号 - LanFund</title>
+    <link rel="icon" href="/static/1.ico">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 24px 20px;
+            color: #e6edf3;
+        }
+        .page { max-width: 480px; margin: 0 auto; }
+        h1 { font-size: 1.35rem; margin-bottom: 4px; color: #e6edf3; }
+        .sub { font-size: 0.875rem; color: #8b949e; margin-bottom: 24px; }
+        .section {
+            background: rgba(22, 27, 34, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #8b949e; }
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: 14px;
+        }
+        .form-group input:focus { outline: none; border-color: #58a6ff; }
+        .form-group .readonly { color: #8b949e; }
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-primary { background: #238636; color: #fff; }
+        .btn-primary:hover { background: #2ea043; }
+        .back { display: inline-block; margin-bottom: 20px; color: #58a6ff; text-decoration: none; font-size: 14px; }
+        .back:hover { text-decoration: underline; }
+        .error { color: #f85149; font-size: 13px; margin-bottom: 12px; }
+        .success { color: #3fb950; font-size: 13px; margin-bottom: 12px; }
+        .hint { font-size: 12px; color: #8b949e; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a href="/admin/users" class="back">← 返回用户管理</a>
+        <h1>修改管理员账号</h1>
+        <p class="sub">修改当前登录的管理员用户名和密码</p>
+
+        <div id="msg"></div>
+
+        <div class="section">
+            <form id="profileForm">
+                <div class="form-group">
+                    <label>当前用户名</label>
+                    <input type="text" class="readonly" value="{{ username }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="new_username">新用户名</label>
+                    <input type="text" id="new_username" name="new_username" placeholder="留空则不修改" minlength="3" maxlength="20">
+                    <div class="hint">3–20 个字符</div>
+                </div>
+                <div class="form-group">
+                    <label for="new_password">新密码</label>
+                    <input type="password" id="new_password" name="new_password" placeholder="留空则不修改" minlength="6">
+                    <div class="hint">至少 6 个字符</div>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">确认新密码</label>
+                    <input type="password" id="confirm_password" name="confirm_password" placeholder="仅修改密码时必填">
+                </div>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('profileForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var newUsername = document.getElementById('new_username').value.trim();
+            var newPassword = document.getElementById('new_password').value;
+            var confirmPassword = document.getElementById('confirm_password').value;
+            var msgEl = document.getElementById('msg');
+
+            if (!newUsername && !newPassword) {
+                msgEl.innerHTML = '<div class="error">请填写新用户名或新密码</div>';
+                return;
+            }
+            if (newPassword && newPassword !== confirmPassword) {
+                msgEl.innerHTML = '<div class="error">两次输入的密码不一致</div>';
+                return;
+            }
+            if (newPassword && newPassword.length < 6) {
+                msgEl.innerHTML = '<div class="error">密码长度至少为 6 个字符</div>';
+                return;
+            }
+
+            fetch('/api/admin/update-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    new_username: newUsername || null,
+                    new_password: newPassword || null
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.success) {
+                    msgEl.innerHTML = '<div class="success">' + res.message + '</div>';
+                    document.getElementById('new_username').value = '';
+                    document.getElementById('new_password').value = '';
+                    document.getElementById('confirm_password').value = '';
+                    if (newUsername) {
+                        setTimeout(function() { location.reload(); }, 800);
+                    }
+                } else {
+                    msgEl.innerHTML = '<div class="error">' + (res.message || '修改失败') + '</div>';
+                }
+            })
+            .catch(function(e) {
+                msgEl.innerHTML = '<div class="error">请求失败: ' + e.message + '</div>';
+            });
+        });
+    </script>
+</body>
+</html>

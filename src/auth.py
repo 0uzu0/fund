@@ -40,16 +40,41 @@ def get_current_username():
     return session.get('username')
 
 
-def login_user(user_id, username):
-    """登录用户，设置session
+def is_admin():
+    """当前登录用户是否为管理员（由登录时从数据库写入 session）"""
+    return session.get('is_admin', False)
+
+
+def admin_required(f):
+    """装饰器：仅管理员可访问"""
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            if request.path.startswith('/api/'):
+                return {'success': False, 'message': '请先登录'}, 401
+            return redirect(url_for('login'))
+        if not is_admin():
+            if request.path.startswith('/api/'):
+                return {'success': False, 'message': '需要管理员权限'}, 403
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def login_user(user_id, username, is_admin=False):
+    """登录用户，设置 session
 
     Args:
         user_id: 用户ID
         username: 用户名
+        is_admin: 是否管理员，默认 False
     """
     session['user_id'] = user_id
     session['username'] = username
-    logger.info(f"User logged in: {username} (ID: {user_id})")
+    session['is_admin'] = bool(is_admin)
+    logger.info(f"User logged in: {username} (ID: {user_id}, admin={is_admin})")
 
 
 def logout_user():

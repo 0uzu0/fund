@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - 管理员 - LanFund</title>
+    <link rel="icon" href="/static/1.ico">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 24px 20px;
+            color: #e6edf3;
+        }
+        .page { max-width: 640px; margin: 0 auto; }
+        h1 { font-size: 1.35rem; margin-bottom: 4px; color: #e6edf3; }
+        .sub { font-size: 0.875rem; color: #8b949e; margin-bottom: 24px; }
+        .section {
+            background: rgba(22, 27, 34, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .section-title { font-size: 1rem; color: #8b949e; margin-bottom: 16px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #8b949e; }
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: 14px;
+        }
+        .form-group input:focus { outline: none; border-color: #58a6ff; }
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-primary { background: #238636; color: #fff; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; padding: 6px 12px; font-size: 13px; }
+        .btn-danger:hover { background: #b62324; }
+        .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+        .error { color: #f85149; font-size: 13px; margin-bottom: 12px; }
+        .success { color: #3fb950; font-size: 13px; margin-bottom: 12px; }
+        .back { display: inline-block; margin-bottom: 20px; color: #58a6ff; text-decoration: none; font-size: 14px; }
+        .back:hover { text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #30363d; }
+        th { color: #8b949e; font-weight: 500; font-size: 13px; }
+        td { font-size: 14px; }
+        .user-list-empty { color: #8b949e; font-size: 14px; padding: 16px 0; }
+        .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #21262d; color: #8b949e; }
+        .badge-admin { background: #238636; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a href="/portfolio" class="back">← 返回持仓</a>
+        <h1>用户管理</h1>
+        <p class="sub">新增用户（默认为普通用户）、查看与删除已有用户；<a href="/admin/profile" style="color: #58a6ff;">修改管理员账号</a></p>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        {% if success %}
+        <div class="success">{{ success }}</div>
+        {% endif %}
+
+        <div class="section">
+            <div class="section-title">新增用户</div>
+            <form method="POST" action="/admin/users">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" placeholder="3-20 个字符" minlength="3" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" placeholder="至少 6 位" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">确认密码</label>
+                    <input type="password" id="confirm_password" name="confirm_password" placeholder="再次输入密码" minlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary">创建用户</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <div class="section-title">已有用户</div>
+            {% if users %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>创建时间</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td>
+                            {{ u.username }}
+                            {% if u.is_admin %}<span class="badge badge-admin">管理员</span>{% endif %}
+                        </td>
+                        <td>{{ u.created_at or '-' }}</td>
+                        <td>
+                            {% if not u.is_admin and u.username != current_username %}
+                            <button type="button" class="btn btn-danger btn-delete" data-user-id="{{ u.id }}" data-username="{{ u.username }}">删除</button>
+                            {% else %}
+                            <span style="color: #8b949e; font-size: 13px;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="user-list-empty">暂无用户</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.btn-delete').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var username = this.getAttribute('data-username');
+                if (!confirm('确定要删除用户「' + username + '」吗？其基金数据将一并删除。')) return;
+                var userId = this.getAttribute('data-user-id');
+                fetch('/api/admin/delete-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: parseInt(userId, 10) })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success) {
+                        alert(res.message);
+                        location.reload();
+                    } else {
+                        alert(res.message || '删除失败');
+                    }
+                })
+                .catch(function(e) {
+                    alert('请求失败: ' + e.message);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

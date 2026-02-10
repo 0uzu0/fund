@@ -245,8 +245,6 @@
 
         // 设置标题
         const titles = {
-            'hold': '选择要标记持有的基金',
-            'unhold': '选择要取消持有的基金',
             'sector': '选择要标注板块的基金',
             'unsector': '选择要删除板块的基金',
             'delete': '选择要删除的基金'
@@ -260,21 +258,13 @@
             allFunds = Object.entries(fundMap).map(([code, data]) => ({
                 code,
                 name: data.fund_name,
-                is_hold: data.is_hold,
+                shares: data.shares || 0,
                 sectors: data.sectors || []
             }));
 
             // 根据操作类型过滤基金列表
             let filteredFunds = allFunds;
             switch (operation) {
-                case 'hold':
-                    // 标记持有：只显示未持有的基金
-                    filteredFunds = allFunds.filter(fund => !fund.is_hold);
-                    break;
-                case 'unhold':
-                    // 取消持有：只显示已持有的基金
-                    filteredFunds = allFunds.filter(fund => fund.is_hold);
-                    break;
                 case 'unsector':
                     // 删除板块：只显示有板块标记的基金
                     filteredFunds = allFunds.filter(fund => fund.sectors && fund.sectors.length > 0);
@@ -310,7 +300,7 @@
                        style="width: 18px; height: 18px; cursor: pointer;" onclick="event.stopPropagation(); toggleFundSelectionByCheckbox('${fund.code}', this)">
                 <div style="flex: 1;">
                     <div style="font-weight: 600;">${fund.code} - ${fund.name}</div>
-                    ${fund.is_hold ? '<span style="color: #667eea; font-size: 12px;">⭐ 持有</span>' : ''}
+                    ${(fund.shares || 0) > 0 ? '<span style="color: #8b949e; font-size: 12px;">持仓</span>' : ''}
                     ${fund.sectors && fund.sectors.length > 0 ? `<span style="color: #8b949e; font-size: 12px;"> 🏷️ ${fund.sectors.join(', ')}</span>` : ''}
                 </div>
             </div>
@@ -359,12 +349,6 @@
 
         // 根据操作类型执行相应的操作
         switch (currentOperation) {
-            case 'hold':
-                await markHold(selectedFundsForOperation);
-                break;
-            case 'unhold':
-                await unmarkHold(selectedFundsForOperation);
-                break;
             case 'sector':
                 const selectedCodes = selectedFundsForOperation; // 先保存选中的基金代码
                 closeFundSelectionModal();
@@ -475,58 +459,6 @@
         );
     }
 
-    // 标记持有
-    async function markHold(codes) {
-        showConfirmDialog(
-            '标记持有',
-            `确定要标记 ${codes.length} 只基金为持有吗？`,
-            async () => {
-                try {
-                    const response = await fetch('/api/fund/hold', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ codes: codes.join(','), hold: true })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        alert(result.message);
-                        location.reload();
-                    } else {
-                        alert(result.message);
-                    }
-                } catch (e) {
-                    alert('操作失败: ' + e.message);
-                }
-            }
-        );
-    }
-
-    // 取消持有
-    async function unmarkHold(codes) {
-        showConfirmDialog(
-            '取消持有',
-            `确定要取消 ${codes.length} 只基金的持有标记吗？`,
-            async () => {
-                try {
-                    const response = await fetch('/api/fund/hold', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ codes: codes.join(','), hold: false })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        alert(result.message);
-                        location.reload();
-                    } else {
-                        alert(result.message);
-                    }
-                } catch (e) {
-                    alert('操作失败: ' + e.message);
-                }
-            }
-        );
-    }
-
     // 打开板块选择模态框（用于标注板块）
     let selectedCodesForSector = [];
 
@@ -547,38 +479,6 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ codes: codes.join(',') })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        alert(result.message);
-                        location.reload();
-                    } else {
-                        alert(result.message);
-                    }
-                } catch (e) {
-                    alert('操作失败: ' + e.message);
-                }
-            }
-        );
-    }
-
-    // 取消持有
-    async function unmarkHold() {
-        const codes = selectedFundsForOperation;
-        if (codes.length === 0) {
-            alert('请先选择要取消持有的基金');
-            return;
-        }
-
-        showConfirmDialog(
-            '取消持有',
-            `确定要取消 ${codes.length} 只基金的持有标记吗？`,
-            async () => {
-                try {
-                    const response = await fetch('/api/fund/hold', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ codes: codes.join(','), hold: false })
                     });
                     const result = await response.json();
                     if (result.success) {
@@ -833,9 +733,8 @@
                     const dayGrowth = dayGrowthText !== 'N/A' ?
                         parseFloat(dayGrowthText.replace('%', '')) : 0;
 
-                    // 计算持仓市值
+                    // 计算持仓价值（用于汇总与收益）
                     const positionValue = shares * netValue;
-                    totalValue += positionValue;
 
                     // 计算预估涨跌（始终计算）
                     const fundEstimatedGain = positionValue * estimatedGrowth / 100;
@@ -853,6 +752,14 @@
 
                     // 获取板块数据
                     const sectors = window.fundSectorsData && window.fundSectorsData[fundCode] ? window.fundSectorsData[fundCode] : [];
+                    // 累计收益 = (净值 - 持仓成本) × 持有份额
+                    const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
+                    const holding_units = hold ? (parseFloat(hold.holding_units) || 0) : shares;
+                    const cost_per_unit = hold ? (parseFloat(hold.cost_per_unit) || 1) : 1;
+                    const cumulativeReturn = (netValue - cost_per_unit) * holding_units;
+                    // 持仓金额 = 净值 × 持有份额（总持仓金额 = 分基金涨跌明细中持仓金额列之和）
+                    const positionAmount = netValue * holding_units;
+                    totalValue += positionAmount;
 
                     // 收集每个基金的详细涨跌信息
                     fundDetailsData.push({
@@ -860,6 +767,11 @@
                         name: fundName,
                         shares: shares,
                         positionValue: positionValue,
+                        positionAmount: positionAmount,
+                        netValue: netValue,
+                        holding_units: holding_units,
+                        cost_per_unit: cost_per_unit,
+                        cumulativeReturn: cumulativeReturn,
                         estimatedGain: fundEstimatedGain,
                         estimatedGainPct: estimatedGrowth,
                         actualGain: fundActualGain,
@@ -898,7 +810,7 @@
             const estimatedGainPctEl = document.getElementById('estimatedGainPct');
             if (estimatedGainEl && estimatedGainPctEl) {
                 const estGainPct = totalValue > 0 ? (estimatedGain / totalValue * 100) : 0;
-                const estSign = estimatedGain >= 0 ? '+' : '';
+                const estSign = estimatedGain >= 0 ? '+' : '-';
                 const sensitiveSpan = estimatedGainEl.querySelector('.sensitive-value');
                 if (sensitiveSpan) {
                     sensitiveSpan.className = estimatedGain >= 0 ? 'sensitive-value positive' : 'sensitive-value negative';
@@ -907,7 +819,7 @@
                 if (realValueSpan) {
                     realValueSpan.textContent = `${estSign}¥${Math.abs(estimatedGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 }
-                estimatedGainPctEl.textContent = ` (${estSign}${estGainPct.toFixed(2)}%)`;
+                estimatedGainPctEl.textContent = ` (${estSign}${Math.abs(estGainPct).toFixed(2)}%)`;
                 estimatedGainPctEl.style.color = estimatedGain >= 0 ? '#f44336' : '#4caf50';
             }
 
@@ -917,7 +829,7 @@
             if (actualGainEl && actualGainPctEl) {
                 if (settledValue > 0) {
                     const actGainPct = (actualGain / settledValue * 100);
-                    const actSign = actualGain >= 0 ? '+' : '';
+                    const actSign = actualGain >= 0 ? '+' : '-';
                     const sensitiveSpan = actualGainEl.querySelector('.sensitive-value');
                     if (sensitiveSpan) {
                         sensitiveSpan.className = actualGain >= 0 ? 'sensitive-value positive' : 'sensitive-value negative';
@@ -926,7 +838,7 @@
                     if (realValueSpan) {
                         realValueSpan.textContent = `${actSign}¥${Math.abs(actualGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     }
-                    actualGainPctEl.textContent = ` (${actSign}${actGainPct.toFixed(2)}%)`;
+                    actualGainPctEl.textContent = ` (${actSign}${Math.abs(actGainPct).toFixed(2)}%)`;
                     actualGainPctEl.style.color = actualGain >= 0 ? '#f44336' : '#4caf50';
                 } else {
                     const sensitiveSpan = actualGainEl.querySelector('.sensitive-value');
@@ -939,6 +851,29 @@
                     }
                     actualGainPctEl.textContent = '';
                 }
+            }
+
+            // 更新累计收益（分基金涨跌明细中所有基金累计收益之和）；显示值 = 现有累计收益 - 修正金额
+            const totalCumulativeReturn = fundDetailsData.reduce((sum, f) => sum + (f.cumulativeReturn || 0), 0);
+            const correction = parseFloat(localStorage.getItem('lan_fund_cumulative_correction') || '0') || 0;
+            const displayedCumulative = totalCumulativeReturn - correction;
+            const cumulativeGainEl = document.getElementById('cumulativeGain');
+            if (cumulativeGainEl) {
+                const sensSpan = cumulativeGainEl.querySelector('.sensitive-value');
+                if (sensSpan) {
+                    sensSpan.className = displayedCumulative >= 0 ? 'sensitive-value positive' : 'sensitive-value negative';
+                }
+                const realSpan = cumulativeGainEl.querySelector('.real-value');
+                if (realSpan) {
+                    const cumSign = displayedCumulative >= 0 ? '+' : '-';
+                    realSpan.textContent = `${cumSign}¥${Math.abs(displayedCumulative).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                }
+            }
+            const summaryCumulativeGain = document.getElementById('summaryCumulativeGain');
+            if (summaryCumulativeGain) {
+                const cumSign = displayedCumulative >= 0 ? '+' : '-';
+                summaryCumulativeGain.textContent = `${cumSign}¥${Math.abs(displayedCumulative).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                summaryCumulativeGain.className = 'summary-value ' + (displayedCumulative > 0 ? 'positive' : (displayedCumulative < 0 ? 'negative' : ''));
             }
 
             // 更新持仓数量
@@ -965,19 +900,21 @@
                     tableBody.innerHTML = fundDetailsData.map(fund => {
                         const estColor = fund.estimatedGain >= 0 ? '#f44336' : '#4caf50';
                         const actColor = fund.actualGain >= 0 ? '#f44336' : '#4caf50';
-                        const estSign = fund.estimatedGain >= 0 ? '+' : '';
-                        const actSign = fund.actualGain >= 0 ? '+' : '';
-                        // 基金名称中已包含板块标签，不再重复添加
+                        const cumColor = (fund.cumulativeReturn || 0) >= 0 ? '#f44336' : '#4caf50';
+                        const estSign = fund.estimatedGain >= 0 ? '+' : '-';
+                        const actSign = fund.actualGain >= 0 ? '+' : '-';
+                        const cumSign = (fund.cumulativeReturn || 0) >= 0 ? '+' : '-';
+                        // 持仓金额=净值×持有份额；累计收益=(净值-持仓成本)×持有份额
                         return `
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding: 10px; text-align: center; vertical-align: middle; color: var(--accent); font-weight: 500;">${fund.code}</td>
                                 <td style="padding: 10px; text-align: center; vertical-align: middle; color: var(--text-main); white-space: nowrap; min-width: 120px;">${fund.name}</td>
-                                <td class="sensitive-value" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono);"><span class="real-value">${fund.shares.toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
-                                <td class="sensitive-value" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); font-weight: 600;"><span class="real-value">¥${fund.positionValue.toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
-                                <td class="sensitive-value ${estColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${estColor}; font-weight: 500;"><span class="real-value">¥${Math.abs(fund.estimatedGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
-                                <td class="${estColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${estColor}; font-weight: 500;">${estSign}${fund.estimatedGainPct.toFixed(2)}%</td>
-                                <td class="sensitive-value ${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;"><span class="real-value">¥${Math.abs(fund.actualGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
-                                <td class="${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}${fund.actualGainPct.toFixed(2)}%</td>
+                                <td class="sensitive-value" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); font-weight: 600;"><span class="real-value">¥${(fund.positionAmount ?? fund.positionValue).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
+                                <td class="sensitive-value ${estColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${estColor}; font-weight: 500;"><span class="real-value">${estSign}¥${Math.abs(fund.estimatedGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
+                                <td class="${estColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${estColor}; font-weight: 500;">${estSign}${Math.abs(fund.estimatedGainPct).toFixed(2)}%</td>
+                                <td class="sensitive-value ${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;"><span class="real-value">${actSign}¥${Math.abs(fund.actualGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
+                                <td class="${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}${Math.abs(fund.actualGainPct).toFixed(2)}%</td>
+                                <td class="sensitive-value ${cumColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${cumColor}; font-weight: 500;"><span class="real-value">${cumSign}¥${Math.abs(fund.cumulativeReturn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
                             </tr>
                         `;
                     }).join('');
@@ -1009,15 +946,15 @@
                 const summaryTotalChange = document.getElementById('summaryTotalChange');
                 if (summaryTotalChange) {
                     const totalPct = totalValue > 0 ? ((estimatedGain + actualGain) / totalValue * 100) : 0;
-                    const totalSign = (estimatedGain + actualGain) >= 0 ? '+' : '';
-                    summaryTotalChange.textContent = `${totalSign}${totalPct.toFixed(2)}%`;
+                    const totalSign = (estimatedGain + actualGain) >= 0 ? '+' : '-';
+                    summaryTotalChange.textContent = `${totalSign}${Math.abs(totalPct).toFixed(2)}%`;
                     summaryTotalChange.className = 'summary-change ' + ((estimatedGain + actualGain) >= 0 ? 'positive' : 'negative');
                 }
 
                 // Update estimated gain
                 const summaryEstGain = document.getElementById('summaryEstGain');
                 if (summaryEstGain) {
-                    const estSign = estimatedGain >= 0 ? '+' : '';
+                    const estSign = estimatedGain >= 0 ? '+' : '-';
                     summaryEstGain.textContent = `${estSign}¥${Math.abs(estimatedGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 }
 
@@ -1025,15 +962,15 @@
                 const summaryEstChange = document.getElementById('summaryEstChange');
                 if (summaryEstChange) {
                     const estGainPct = totalValue > 0 ? (estimatedGain / totalValue * 100) : 0;
-                    const estSign = estimatedGain >= 0 ? '+' : '';
-                    summaryEstChange.textContent = `${estSign}${estGainPct.toFixed(2)}%`;
+                    const estSign = estimatedGain >= 0 ? '+' : '-';
+                    summaryEstChange.textContent = `${estSign}${Math.abs(estGainPct).toFixed(2)}%`;
                     summaryEstChange.className = 'summary-change ' + (estimatedGain >= 0 ? 'positive' : 'negative');
                 }
 
                 // Update actual gain
                 const summaryActualGain = document.getElementById('summaryActualGain');
                 if (summaryActualGain) {
-                    const actSign = actualGain >= 0 ? '+' : '';
+                    const actSign = actualGain >= 0 ? '+' : '-';
                     summaryActualGain.textContent = `${actSign}¥${Math.abs(actualGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 }
 
@@ -1042,8 +979,8 @@
                 if (summaryActualChange) {
                     if (settledValue > 0) {
                         const actGainPct = (actualGain / settledValue * 100);
-                        const actSign = actualGain >= 0 ? '+' : '';
-                        summaryActualChange.textContent = `${actSign}${actGainPct.toFixed(2)}%`;
+                        const actSign = actualGain >= 0 ? '+' : '-';
+                        summaryActualChange.textContent = `${actSign}${Math.abs(actGainPct).toFixed(2)}%`;
                         summaryActualChange.className = 'summary-change ' + (actualGain >= 0 ? 'positive' : 'negative');
                     } else {
                         summaryActualChange.textContent = '0.00%';
@@ -1067,21 +1004,29 @@
                 if (response.ok) {
                     const fundData = await response.json();
 
-                    // 初始化全局份额数据存储
+                    // 初始化全局份额数据存储（持仓份额 = 持有份额 × 持仓成本）
                     window.fundSharesData = {};
+                    window.fundHoldingData = {};  // { code: { holding_units, cost_per_unit } }
                     window.fundSectorsData = {};  // 存储板块数据
 
-                    // 填充份额数据到全局存储
                     for (const [code, data] of Object.entries(fundData)) {
                         if (data.shares !== undefined && data.shares !== null) {
                             window.fundSharesData[code] = parseFloat(data.shares) || 0;
                         }
-                        // 存储板块数据
+                        if (data.holding_units !== undefined && data.cost_per_unit !== undefined) {
+                            window.fundHoldingData[code] = {
+                                holding_units: parseFloat(data.holding_units) || 0,
+                                cost_per_unit: parseFloat(data.cost_per_unit) || 1
+                            };
+                        } else if (window.fundSharesData[code] != null) {
+                            window.fundHoldingData[code] = {
+                                holding_units: window.fundSharesData[code],
+                                cost_per_unit: 1
+                            };
+                        }
                         if (data.sectors && data.sectors.length > 0) {
                             window.fundSectorsData[code] = data.sectors;
                         }
-
-                        // 如果有份额输入框，也填充（旧版页面兼容）
                         const sharesInput = document.getElementById('shares_' + code);
                         if (sharesInput && data.shares) {
                             sharesInput.value = data.shares;
@@ -1099,6 +1044,38 @@
                 calculatePositionSummary();
             }
         }
+
+        // 累计收益修正弹窗
+        function openCumulativeCorrectionModal() {
+            const modal = document.getElementById('cumulativeCorrectionModal');
+            const input = document.getElementById('cumulativeCorrectionInput');
+            if (modal && input) {
+                const v = localStorage.getItem('lan_fund_cumulative_correction');
+                input.value = v !== null && v !== '' ? v : '';
+                modal.style.display = 'flex';
+                input.focus();
+            }
+        }
+        function closeCumulativeCorrectionModal() {
+            const modal = document.getElementById('cumulativeCorrectionModal');
+            if (modal) modal.style.display = 'none';
+        }
+        function applyCumulativeCorrection() {
+            const input = document.getElementById('cumulativeCorrectionInput');
+            if (!input) return;
+            const raw = input.value.trim();
+            const val = raw === '' ? 0 : parseFloat(raw);
+            if (isNaN(val)) {
+                alert('请输入有效的数字');
+                return;
+            }
+            localStorage.setItem('lan_fund_cumulative_correction', String(val));
+            closeCumulativeCorrectionModal();
+            calculatePositionSummary();
+        }
+        window.openCumulativeCorrectionModal = openCumulativeCorrectionModal;
+        window.closeCumulativeCorrectionModal = closeCumulativeCorrectionModal;
+        window.applyCumulativeCorrection = applyCumulativeCorrection;
 
         // 初始化
         loadSharesData();
@@ -1118,8 +1095,6 @@
         window.downloadFundMap = downloadFundMap;
         window.uploadFundMap = uploadFundMap;
         window.addFunds = addFunds;
-        window.markHold = markHold;
-        window.unmarkHold = unmarkHold;
         window.deleteFunds = deleteFunds;
         window.openSectorModal = openSectorModal;
         window.closeSectorModal = closeSectorModal;
@@ -1154,26 +1129,45 @@
             }
         }
 
-        // 打开份额设置弹窗
+        // 更新弹窗内“持仓份额”计算结果
+        function updateSharesModalResult() {
+            const holdingInput = document.getElementById('sharesModalHoldingUnits');
+            const costInput = document.getElementById('sharesModalCostPerUnit');
+            const resultEl = document.getElementById('sharesModalResult');
+            if (!holdingInput || !costInput || !resultEl) return;
+            const holding = parseFloat(holdingInput.value) || 0;
+            const cost = parseFloat(costInput.value) || 0;
+            const shares = holding * cost;
+            resultEl.textContent = shares.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // 打开份额设置弹窗（持有份额 × 持仓成本 = 持仓份额）
         window.openSharesModal = function(fundCode) {
             currentSharesFundCode = fundCode;
             const modal = document.getElementById('sharesModal');
             const fundCodeDisplay = document.getElementById('sharesModalFundCode');
-            const sharesInput = document.getElementById('sharesModalInput');
-
-            // 获取当前份额
-            const sharesValue = window.getFundShares(fundCode) || 0;
-            sharesInput.value = sharesValue > 0 ? sharesValue : '';
-            fundCodeDisplay.textContent = fundCode;
-
-            // 更新弹窗标题
-            const header = modal.querySelector('.sector-modal-header');
-            if (header) {
-                header.textContent = sharesValue > 0 ? '修改持仓份额' : '设置持仓份额';
+            const holdingInput = document.getElementById('sharesModalHoldingUnits');
+            const costInput = document.getElementById('sharesModalCostPerUnit');
+                if (!holdingInput || !costInput) {
+                const legacyInput = document.getElementById('sharesModalInput');
+                if (legacyInput) {
+                    const v = window.getFundShares(fundCode) || 0;
+                    legacyInput.value = v > 0 ? v : '';
+                }
+            } else {
+                const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
+                const units = hold ? hold.holding_units : (window.getFundShares(fundCode) || 0);
+                const cost = hold ? hold.cost_per_unit : 1;
+                holdingInput.value = units > 0 ? units : '';
+                costInput.value = cost > 0 ? cost : '';
+                updateSharesModalResult();
             }
-
-            modal.classList.add('active');
-            setTimeout(() => sharesInput.focus(), 100);
+            if (fundCodeDisplay) fundCodeDisplay.textContent = fundCode;
+            const sharesValue = window.getFundShares(fundCode) || 0;
+            const header = modal ? modal.querySelector('.sector-modal-header') : null;
+            if (header) header.textContent = sharesValue > 0 ? '修改持仓份额' : '设置持仓份额';
+            if (modal) modal.classList.add('active');
+            setTimeout(() => (holdingInput || document.getElementById('sharesModalInput'))?.focus(), 100);
         };
 
         // 关闭份额设置弹窗
@@ -1185,46 +1179,59 @@
             currentSharesFundCode = null;
         };
 
-        // 确认设置份额
+        // 确认设置份额（提交 持有份额、持仓成本，后端计算 持仓份额）
         window.confirmShares = async function() {
             if (!currentSharesFundCode) {
                 alert('未选择基金');
                 return;
             }
-
-            const sharesInput = document.getElementById('sharesModalInput');
-            const shares = parseFloat(sharesInput.value) || 0;
-
-            if (shares < 0) {
-                alert('份额不能为负数');
-                return;
+            const holdingInput = document.getElementById('sharesModalHoldingUnits');
+            const costInput = document.getElementById('sharesModalCostPerUnit');
+            let holding_units, cost_per_unit, shares;
+            if (holdingInput && costInput) {
+                holding_units = parseFloat(holdingInput.value) || 0;
+                cost_per_unit = parseFloat(costInput.value) || 0;
+                if (holding_units < 0 || cost_per_unit < 0) {
+                    alert('持有份额与持仓成本不能为负数');
+                    return;
+                }
+                if (cost_per_unit === 0) cost_per_unit = 1;
+                shares = holding_units * cost_per_unit;
+            } else {
+                const sharesInput = document.getElementById('sharesModalInput');
+                shares = parseFloat(sharesInput?.value) || 0;
+                if (shares < 0) {
+                    alert('份额不能为负数');
+                    return;
+                }
+                holding_units = shares;
+                cost_per_unit = 1;
             }
-
             try {
+                const body = { code: currentSharesFundCode };
+                if (holdingInput && costInput) {
+                    body.holding_units = holding_units;
+                    body.cost_per_unit = cost_per_unit;
+                } else {
+                    body.shares = shares;
+                }
                 const response = await fetch('/api/fund/shares', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: currentSharesFundCode, shares: shares })
+                    body: JSON.stringify(body)
                 });
                 const result = await response.json();
-
                 if (result.success) {
-                    // 更新全局存储
-                    if (!window.fundSharesData) {
-                        window.fundSharesData = {};
-                    }
-                    window.fundSharesData[currentSharesFundCode] = shares;
-
-                    // 更新按钮状态
-                    updateSharesButton(currentSharesFundCode, shares);
-
-                    // 重新计算持仓统计
+                    if (!window.fundSharesData) window.fundSharesData = {};
+                    window.fundSharesData[currentSharesFundCode] = result.shares != null ? result.shares : shares;
+                    if (!window.fundHoldingData) window.fundHoldingData = {};
+                    window.fundHoldingData[currentSharesFundCode] = {
+                        holding_units: result.holding_units != null ? result.holding_units : holding_units,
+                        cost_per_unit: result.cost_per_unit != null ? result.cost_per_unit : cost_per_unit
+                    };
+                    updateSharesButton(currentSharesFundCode, window.fundSharesData[currentSharesFundCode]);
                     calculatePositionSummary();
-
-                    // 关闭弹窗
                     window.closeSharesModal();
-
-                    alert(result.message);
                 } else {
                     alert(result.message);
                 }
@@ -1233,11 +1240,24 @@
             }
         };
 
-        // 全局暴露份额相关函数
+        window.updateSharesModalResult = updateSharesModalResult;
         window.openSharesModal = openSharesModal;
         window.closeSharesModal = closeSharesModal;
         window.confirmShares = confirmShares;
         window.getFundShares = getFundShares;
+
+        // 事件委托：点击「设置/修改」持仓按钮时打开弹窗（避免内联 onclick 未生效）
+        document.addEventListener('click', function(e) {
+            const btn = e.target && e.target.closest && e.target.closest('.shares-button');
+            if (btn && typeof window.openSharesModal === 'function') {
+                const code = btn.getAttribute('data-fund-code') || (btn.id && btn.id.replace(/^sharesBtn_/, ''));
+                if (code) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.openSharesModal(code);
+                }
+            }
+        });
 
         // ==================== Auto-Refresh System ====================
         let refreshInterval;
@@ -1419,7 +1439,7 @@
                     const color = changePct >= 0 ? '#f44336' : '#4caf50';
                     titleEl.style.color = color;
                     titleEl.innerHTML = '📉 上证分时 <span style="font-size:0.9em;">' +
-                        (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '% (' +
+                        (changePct >= 0 ? '+' : '-') + Math.abs(changePct).toFixed(2) + '% (' +
                         data.current_price.toFixed(2) + ')</span>';
                 }
             }
@@ -1612,14 +1632,14 @@
 
             const estimatedGainEl = document.getElementById('estimatedGain');
             const estimatedGainText = estimatedGainEl?.querySelector('.real-value')?.textContent || '¥0.00';
-            const isEstNegative = estimatedGainEl?.querySelector('.sensitive-value')?.classList.contains('negative') ?? false;
-            const estimatedGain = parseFloat(estimatedGainText.replace(/[¥,]/g, '')) * (isEstNegative ? -1 : 1) || 0;
+            // 文本格式为 "+¥1,234.56" 或 "-¥1,234.56"，parseFloat 可正确解析正负
+            const estimatedGain = parseFloat(estimatedGainText.replace(/[¥,]/g, '')) || 0;
 
             const actualGainEl = document.getElementById('actualGain');
             const actualGainText = actualGainEl?.querySelector('.real-value')?.textContent || '¥0.00';
-            const isActNegative = actualGainEl?.querySelector('.sensitive-value')?.classList.contains('negative') ?? false;
+            // 文本格式为 "+¥1,234.56" 或 "-¥1,234.56"，parseFloat 可正确解析正负
             const actualGain = actualGainText.includes('净值') ? 0 :
-                parseFloat(actualGainText.replace(/[¥,]/g, '')) * (isActNegative ? -1 : 1) || 0;
+                parseFloat(actualGainText.replace(/[¥,]/g, '')) || 0;
 
             // 格式化日期
             const today = new Date();
@@ -1633,13 +1653,13 @@
                 '¥' + totalValue.toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
             const estGainEl = document.getElementById('showoffEstimatedGain');
-            estGainEl.textContent = '¥' + Math.abs(estimatedGain).toLocaleString('zh-CN',
+            estGainEl.textContent = (estimatedGain >= 0 ? '+' : '-') + '¥' + Math.abs(estimatedGain).toLocaleString('zh-CN',
                 {minimumFractionDigits: 2, maximumFractionDigits: 2});
             estGainEl.className = 'summary-value ' + (estimatedGain >= 0 ? 'positive' : 'negative');
 
             const actGainEl = document.getElementById('showoffActualGain');
             actGainEl.textContent = actualGainText.includes('净值') ? '净值未更新' :
-                ('¥' + Math.abs(actualGain).toLocaleString('zh-CN',
+                ((actualGain >= 0 ? '+' : '-') + '¥' + Math.abs(actualGain).toLocaleString('zh-CN',
                 {minimumFractionDigits: 2, maximumFractionDigits: 2}));
             actGainEl.className = 'summary-value ' + (actualGain > 0 ? 'positive' :
                 (actualGain < 0 ? 'negative' : ''));
@@ -1698,7 +1718,7 @@
                         <div class="fund-info">
                             <div class="fund-name">${fund.name}</div>
                         </div>
-                        <div class="fund-gain ${colorClass}">¥${Math.abs(gain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div class="fund-gain ${colorClass}">${gain >= 0 ? '+' : '-'}¥${Math.abs(gain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                     </div>
                 `;
             }).join('');

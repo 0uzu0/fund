@@ -636,9 +636,6 @@ class LanFund:
                             dayOfGrowth = "\033[1;32m" + dayOfGrowth
                         else:
                             dayOfGrowth = "\033[1;31m" + dayOfGrowth
-                    # 处理持有标记（Web 和 CLI 模式都显示）
-                    if self.CACHE_MAP[fund].get("is_hold", False):
-                        fund_name = "⭐ " + fund_name
                     # 处理板块标记 - 根据模式使用不同格式
                     sectors = self.CACHE_MAP[fund].get("sectors", [])
                     if sectors:
@@ -785,18 +782,18 @@ class LanFund:
 
                 est_color = '\033[1;31m' if est_gain >= 0 else '\033[1;32m'
                 act_color = '\033[1;31m' if act_gain >= 0 else '\033[1;32m'
-                est_sign = '+' if est_gain >= 0 else ''
-                act_sign = '+' if act_gain >= 0 else ''
+                est_sign = '+' if est_gain >= 0 else '-'
+                act_sign = '+' if act_gain >= 0 else '-'
 
                 # 今日实际涨跌：只有当有基金净值更新至今日时才显示数值
                 if settled_value > 0:
-                    actual_gain_str = f"{act_color}{act_sign}¥{act_gain:,.2f} ({act_sign}{act_gain_pct:.2f}%)\033[0m"
+                    actual_gain_str = f"{act_color}{act_sign}¥{abs(act_gain):,.2f} ({act_sign}{abs(act_gain_pct):.2f}%)\033[0m"
                 else:
                     actual_gain_str = "\033[1;90m净值未更新\033[0m"  # 灰色显示
 
                 summary_table = [
                     ["总持仓金额", f"¥{total_value:,.2f}"],
-                    ["今日预估涨跌", f"{est_color}{est_sign}¥{est_gain:,.2f} ({est_sign}{est_gain_pct:.2f}%)\033[0m"],
+                    ["今日预估涨跌", f"{est_color}{est_sign}¥{abs(est_gain):,.2f} ({est_sign}{abs(est_gain_pct):.2f}%)\033[0m"],
                     ["今日实际涨跌", actual_gain_str],
                 ]
 
@@ -807,28 +804,31 @@ class LanFund:
                 if 'fund_details' in position_summary and position_summary['fund_details']:
                     logger.critical(f"{time.strftime('%Y-%m-%d %H:%M')} 分基金涨跌明细:")
 
-                    # 准备表格数据
+                    # 准备表格数据（持仓金额=持仓份额×净值，累计收益=(净值-持仓成本)×持有份额）
                     table_data = []
                     for detail in position_summary['fund_details']:
                         est_color = '\033[1;31m' if detail['estimated_gain'] >= 0 else '\033[1;32m'
                         act_color = '\033[1;31m' if detail['actual_gain'] >= 0 else '\033[1;32m'
-                        est_sign = '+' if detail['estimated_gain'] >= 0 else ''
-                        act_sign = '+' if detail['actual_gain'] >= 0 else ''
+                        cum_color = '\033[1;31m' if detail.get('cumulative_return', 0) >= 0 else '\033[1;32m'
+                        est_sign = '+' if detail['estimated_gain'] >= 0 else '-'
+                        act_sign = '+' if detail['actual_gain'] >= 0 else '-'
+                        cum_ret = detail.get('cumulative_return', 0)
+                        cum_sign = '+' if cum_ret >= 0 else '-'
 
                         table_data.append([
                             detail['code'],
                             detail['name'],
-                            f"{detail['shares']:,.2f}",
                             f"¥{detail['position_value']:,.2f}",
-                            f"{est_color}{est_sign}¥{detail['estimated_gain']:,.2f}\033[0m",
-                            f"{est_color}{est_sign}{detail['estimated_gain_pct']:.2f}%\033[0m",
-                            f"{act_color}{act_sign}¥{detail['actual_gain']:,.2f}\033[0m",
-                            f"{act_color}{act_sign}{detail['actual_gain_pct']:.2f}%\033[0m",
+                            f"{est_color}{est_sign}¥{abs(detail['estimated_gain']):,.2f}\033[0m",
+                            f"{est_color}{est_sign}{abs(detail['estimated_gain_pct']):.2f}%\033[0m",
+                            f"{act_color}{act_sign}¥{abs(detail['actual_gain']):,.2f}\033[0m",
+                            f"{act_color}{act_sign}{abs(detail['actual_gain_pct']):.2f}%\033[0m",
+                            f"{cum_color}{cum_sign}¥{abs(cum_ret):,.2f}\033[0m",
                         ])
 
                     for line_msg in format_table_msg([
-                        ["基金代码", "基金名称", "持仓份额", "持仓市值", "预估收益", "预估涨跌", "实际收益",
-                         "实际涨跌"],
+                        ["基金代码", "基金名称", "持仓金额", "预估收益", "预估涨跌", "实际收益",
+                         "实际涨跌", "累计收益"],
                         *table_data
                     ]).split("\n"):
                         logger.info(line_msg)
@@ -905,7 +905,7 @@ class LanFund:
                 else:
                     day_growth = 0
 
-                # 计算持仓市值
+                # 计算持仓价值（用于汇总与收益）
                 position_value = shares * net_value
                 total_value += position_value
 
@@ -922,12 +922,28 @@ class LanFund:
                     actual_gain += fund_act_gain
                     settled_value += position_value
 
+                # 累计收益 = (净值 - 持仓成本) × 持有份额
+                cache = self.CACHE_MAP.get(fund_code, {})
+                holding_units = cache.get('holding_units')
+                cost_per_unit = cache.get('cost_per_unit')
+                if holding_units is None:
+                    holding_units = shares
+                if cost_per_unit is None:
+                    cost_per_unit = 1.0
+                try:
+                    holding_units = float(holding_units)
+                    cost_per_unit = float(cost_per_unit)
+                except (TypeError, ValueError):
+                    holding_units, cost_per_unit = shares, 1.0
+                cumulative_return = (net_value - cost_per_unit) * holding_units
+
                 # 保存每个基金的详细信息
                 fund_details.append({
                     'code': fund_code,
                     'name': fund_name,
                     'shares': shares,
                     'position_value': position_value,
+                    'cumulative_return': cumulative_return,
                     'estimated_gain': fund_est_gain,
                     'estimated_gain_pct': (fund_est_gain / position_value * 100) if position_value > 0 else 0,
                     'actual_gain': fund_act_gain,
@@ -991,12 +1007,7 @@ class LanFund:
                             continue
 
                         self.CACHE_MAP[code]['shares'] = shares
-
-                        # 如果份额>0，自动标记为持有
-                        if shares > 0:
-                            self.CACHE_MAP[code]['is_hold'] = True
-
-                        logger.info(f"✓ 已更新份额: {shares}")
+                        logger.info(f"✓ 已更新持仓金额: {shares}")
                     except ValueError:
                         logger.warning("份额格式错误，请输入数字")
                         continue
@@ -1013,7 +1024,7 @@ class LanFund:
         result = self.search_code(True)
         return get_table_html(
             [
-                "基金代码", "基金名称", "当前时间", "净值", "估值", "日涨幅", "连涨/跌", "近30天"
+                "基金代码", "基金名称", "当前时间", "净值", "今日涨幅", "昨日涨幅", "连涨/跌", "近30天"
             ],
             result,
             sortable_columns=[4, 5, 6, 7]
@@ -1310,7 +1321,7 @@ class LanFund:
         ]).split("\n"):
             logger.info(line_msg)
 
-    def run(self, is_add=False, is_delete=False, is_hold=False, is_not_hold=False, report_dir=None,
+    def run(self, is_add=False, is_delete=False, report_dir=None,
             deep_mode=False, fast_mode=False, with_ai=False, select_mode=False, mark_sector=False, unmark_sector=False,
             modify_shares=False):
 
@@ -1340,51 +1351,6 @@ class LanFund:
             logger.warning("暂无缓存代码信息, 请先添加基金代码")
             is_add = True
             is_delete = False
-            is_hold = False
-            is_not_hold = False
-        if is_not_hold:
-            hold_codes = [code for code, data in self.CACHE_MAP.items() if data.get("is_hold", False)]
-            if not hold_codes:
-                logger.warning("暂无持有标注基金代码")
-                return
-            logger.debug(f"当前持有标注基金代码: {hold_codes}")
-            logger.debug("请输入基金代码, 多个基金代码以英文逗号分隔:")
-            codes = input()
-            codes = codes.split(",")
-            codes = [code.strip() for code in codes if code.strip()]
-            for code in codes:
-                try:
-                    if code in self.CACHE_MAP:
-                        self.CACHE_MAP[code]["is_hold"] = False
-                        logger.info(f"删除持有标注【{code}】成功")
-                    else:
-                        logger.warning(f"删除持有标注【{code}】失败: 不存在该基金代码")
-                except Exception as e:
-                    logger.error(f"删除持有标注【{code}】失败: {e}")
-            self.save_cache()
-            return
-        if is_hold:
-            now_codes = list(self.CACHE_MAP.keys())
-            logger.debug(f"当前缓存基金代码: {now_codes}")
-            logger.info("请输入基金代码, 多个基金代码以英文逗号分隔:")
-            codes = input()
-            codes = codes.split(",")
-            codes = [code.strip() for code in codes if code.strip()]
-
-            for code in codes:
-                try:
-                    if code not in self.CACHE_MAP:
-                        logger.warning(f"添加持有标注【{code}】失败: 不存在该基金代码, 请先添加该基金代码")
-                        continue
-
-                    self.CACHE_MAP[code]["is_hold"] = True
-                    logger.info(f"添加持有标注【{code}】成功")
-
-                except Exception as e:
-                    logger.error(f"添加持有标注【{code}】失败: {e}")
-            self.save_cache()
-            return
-
         if is_delete:
             now_codes = list(self.CACHE_MAP.keys())
             logger.debug(f"当前缓存基金代码: {now_codes}")
@@ -2158,8 +2124,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='LanFund')
     parser.add_argument('-a', '--add', action='store_true', help='添加基金代码')
     parser.add_argument("-d", "--delete", action="store_true", help="删除基金代码")
-    parser.add_argument("-c", "--hold", action="store_true", help="添加持有基金标注")
-    parser.add_argument("-b", "--not_hold", action="store_true", help="删除持有基金标注")
     parser.add_argument("-e", "--mark_sector", action="store_true", help="标记板块")
     parser.add_argument("-u", "--unmark_sector", action="store_true", help="删除标记板块")
     parser.add_argument("-s", "--select", action="store_true", help="选择板块查看基金列表")
@@ -2181,5 +2145,5 @@ if __name__ == '__main__':
     lan_fund = LanFund()
     # 只有指定了 -o 参数时才传入 report_dir，否则传入 None 表示不保存报告
     report_dir = args.output if args.output is not None else None
-    lan_fund.run(args.add, args.delete, args.hold, args.not_hold, report_dir, args.deep, args.fast, args.with_ai,
+    lan_fund.run(args.add, args.delete, report_dir, args.deep, args.fast, args.with_ai,
                  args.select, args.mark_sector, args.unmark_sector, args.modify_shares)

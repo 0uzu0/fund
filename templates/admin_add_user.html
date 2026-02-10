@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加用户 - 管理员 - LanFund</title>
+    <link rel="icon" href="/static/1.ico">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #e6edf3;
+        }
+        .container {
+            background: rgba(22, 27, 34, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 28px;
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 8px; color: #8b949e; }
+        .sub { font-size: 0.875rem; color: #6e7681; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #8b949e; }
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: 14px;
+        }
+        .form-group input:focus { outline: none; border-color: #58a6ff; }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .btn:hover { background: #2ea043; }
+        .error { color: #f85149; font-size: 13px; margin-bottom: 12px; }
+        .success { color: #3fb950; font-size: 13px; margin-bottom: 12px; }
+        .back { display: inline-block; margin-top: 16px; color: #58a6ff; text-decoration: none; font-size: 14px; }
+        .back:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>管理员 · 添加用户</h1>
+        <p class="sub">创建新用户账号，用户名 3–20 字符，密码至少 6 位</p>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        {% if success %}
+        <div class="success">{{ success }}</div>
+        {% endif %}
+
+        <form method="POST" action="/admin/add-user">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" placeholder="3-20 个字符" required minlength="3" maxlength="20" autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" placeholder="至少 6 位" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">确认密码</label>
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="再次输入密码" required minlength="6">
+            </div>
+            <button type="submit" class="btn">创建用户</button>
+        </form>
+
+        <a href="/portfolio" class="back">← 返回持仓</a>
+    </div>
+</body>
+</html>
