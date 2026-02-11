@@ -463,6 +463,11 @@ def api_fund_upload():
                 return {'success': False, 'message': f'基金{code}数据格式错误'}
             if 'fund_key' not in fund_data or 'fund_name' not in fund_data:
                 return {'success': False, 'message': f'基金{code}缺少必要字段'}
+            # 导入时补全持仓成本、持仓份额（持有份额），缺省时用 shares 与 1.0
+            if 'holding_units' not in fund_data:
+                fund_data['holding_units'] = fund_data.get('shares', 0)
+            if 'cost_per_unit' not in fund_data:
+                fund_data['cost_per_unit'] = 1.0
 
         # 保存到数据库
         user_id = get_current_user_id()
@@ -483,10 +488,19 @@ def api_fund_upload():
 @app.route('/api/fund/download', methods=['GET'])
 @login_required
 def api_fund_download():
-    """下载fund_map.json文件"""
+    """下载fund_map.json文件（含持仓成本 cost_per_unit、持仓份额 holding_units）"""
     try:
         user_id = get_current_user_id()
         fund_map = db.get_user_funds(user_id)
+
+        # 确保每条基金数据都包含持仓成本、持仓份额（持有份额），便于导入时完整恢复
+        for code, data in fund_map.items():
+            if not isinstance(data, dict):
+                continue
+            if 'holding_units' not in data:
+                data['holding_units'] = data.get('shares', 0)
+            if 'cost_per_unit' not in data:
+                data['cost_per_unit'] = 1.0
 
         # 生成JSON文件
         import tempfile
@@ -511,53 +525,75 @@ def api_fund_download():
 @app.route('/api/fund/shares', methods=['POST'])
 @login_required
 def api_fund_shares():
-    """更新基金持仓：支持 持有份额+持仓成本（持仓份额=持有份额×持仓成本），兼容仅传 shares"""
+    """更新基金持仓：支持 持有份额+持仓成本（持仓份额=持有份额×持仓成本），兼容仅传 shares。
+    若传 record_op/amount/trade_date，则写入持仓记录表（用于持仓记录页撤销）。"""
     try:
         data = request.json
         code = data.get('code', '').strip()
         holding_units = data.get('holding_units')
         cost_per_unit = data.get('cost_per_unit')
         shares = data.get('shares')
+        record_op = data.get('record_op')  # 'add' | 'reduce'
+        amount = data.get('amount')
+        trade_date = data.get('trade_date', '')
+        period = data.get('period', '')
+        fund_name = data.get('fund_name', '')
 
         if not code:
-            return {'success': False, 'message': '请提供基金代码'}
+            return jsonify({'success': False, 'message': '请提供基金代码'})
 
         if holding_units is not None and cost_per_unit is not None:
             try:
                 holding_units = float(holding_units)
                 cost_per_unit = float(cost_per_unit)
                 if holding_units < 0 or cost_per_unit < 0:
-                    return {'success': False, 'message': '持有份额与持仓成本不能为负数'}
+                    return jsonify({'success': False, 'message': '持有份额与持仓成本不能为负数'})
             except (ValueError, TypeError):
-                return {'success': False, 'message': '持有份额或持仓成本格式错误'}
+                return jsonify({'success': False, 'message': '持有份额或持仓成本格式错误'})
             shares = holding_units * cost_per_unit
         else:
             try:
                 shares = float(shares) if shares is not None else 0
                 if shares < 0:
-                    return {'success': False, 'message': '份额不能为负数'}
+                    return jsonify({'success': False, 'message': '份额不能为负数'})
             except (ValueError, TypeError):
-                return {'success': False, 'message': '份额格式错误'}
+                return jsonify({'success': False, 'message': '份额格式错误'})
             holding_units = shares
             cost_per_unit = 1.0
 
         user_id = get_current_user_id()
+        fund_map = db.get_user_funds(user_id)
+        if code not in fund_map:
+            return jsonify({'success': False, 'message': '更新失败，基金不存在'})
+
+        prev_holding_units = float(fund_map[code].get('holding_units', 0) or 0)
+        prev_cost_per_unit = float(fund_map[code].get('cost_per_unit', 1) or 1)
+        prev_fund_name = fund_map[code].get('fund_name', fund_name)
+
         success = db.update_fund_holding(user_id, code, holding_units, cost_per_unit)
 
         if success:
             if shares > 0:
-                fund_map = db.get_user_funds(user_id)
-                if code in fund_map:
-                    fund_map[code]['shares'] = shares
-                    fund_map[code]['holding_units'] = holding_units
-                    fund_map[code]['cost_per_unit'] = cost_per_unit
-                    db.save_user_funds(user_id, fund_map)
-            return {'success': True, 'message': '已更新持仓金额', 'shares': shares, 'holding_units': holding_units, 'cost_per_unit': cost_per_unit}
-        return {'success': False, 'message': '更新失败，基金不存在'}
+                fund_map[code]['shares'] = shares
+                fund_map[code]['holding_units'] = holding_units
+                fund_map[code]['cost_per_unit'] = cost_per_unit
+                db.save_user_funds(user_id, fund_map)
+            if record_op in ('add', 'reduce') and amount is not None and trade_date:
+                try:
+                    amt = float(amount)
+                    db.insert_position_record(
+                        user_id, code, prev_fund_name or fund_map[code].get('fund_name', ''),
+                        record_op, amt, trade_date.strip(), (period or '').strip(),
+                        prev_holding_units, prev_cost_per_unit, holding_units, cost_per_unit
+                    )
+                except Exception as e:
+                    logger.warning(f"Insert position record failed: {e}")
+            return jsonify({'success': True, 'message': '已更新持仓金额', 'shares': shares, 'holding_units': holding_units, 'cost_per_unit': cost_per_unit})
+        return jsonify({'success': False, 'message': '更新失败，基金不存在'})
 
     except Exception as e:
         logger.error(f"更新份额失败: {e}")
-        return {'success': False, 'message': f'更新失败: {str(e)}'}
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
 
 
 @app.route('/api/fund/data', methods=['GET'])
@@ -571,6 +607,34 @@ def api_fund_data():
     except Exception as e:
         logger.error(f"获取基金数据失败: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/fund/position-records', methods=['GET'])
+@login_required
+def api_fund_position_records():
+    """获取当前用户的持仓记录列表（加减仓记录）"""
+    try:
+        user_id = get_current_user_id()
+        records = db.get_position_records(user_id)
+        return jsonify({'success': True, 'records': records})
+    except Exception as e:
+        logger.error(f"获取持仓记录失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/fund/position-records/<int:record_id>', methods=['DELETE'])
+@login_required
+def api_fund_position_record_delete(record_id):
+    """删除一条持仓记录并撤销该次加减仓操作"""
+    try:
+        user_id = get_current_user_id()
+        success, message = db.delete_position_record_and_restore(user_id, record_id)
+        if success:
+            return jsonify({'success': True, 'message': message})
+        return jsonify({'success': False, 'message': message}), 400
+    except Exception as e:
+        logger.error(f"撤销持仓记录失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/api/client/fund/config', methods=['POST'])
@@ -1213,6 +1277,15 @@ def api_fund_chart_default():
 
     db.update_chart_default(user_id, fund_code)
     return jsonify({'success': True})
+
+
+@app.route('/position-records', methods=['GET'])
+@login_required
+def get_position_records():
+    """持仓记录页面（加减仓记录，删除即撤销）"""
+    from src.module_html import get_position_records_page_html
+    html = get_position_records_page_html(username=get_current_username(), is_admin=is_admin())
+    return html
 
 
 @app.route('/sectors', methods=['GET'])

@@ -131,6 +131,26 @@ class Database:
             if cursor.rowcount:
                 logger.debug("Migrated shares to holding_units/cost_per_unit")
 
+        # 持仓记录表（加减仓记录，删除即撤销）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS position_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                fund_code TEXT NOT NULL,
+                fund_name TEXT,
+                op TEXT NOT NULL,
+                amount REAL NOT NULL,
+                trade_date TEXT NOT NULL,
+                period TEXT,
+                prev_holding_units REAL NOT NULL,
+                prev_cost_per_unit REAL NOT NULL,
+                new_holding_units REAL NOT NULL,
+                new_cost_per_unit REAL NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
+
         # 用户表增加 is_admin 字段（迁移）
         cursor.execute("PRAGMA table_info(users)")
         user_cols = [c[1] for c in cursor.fetchall()]
@@ -489,6 +509,80 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to update holding: {e}")
             return False
+
+    def insert_position_record(self, user_id, fund_code, fund_name, op, amount, trade_date, period,
+                                prev_holding_units, prev_cost_per_unit, new_holding_units, new_cost_per_unit):
+        """插入一条加减仓记录。op 为 'add' 或 'reduce'。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO position_records
+                (user_id, fund_code, fund_name, op, amount, trade_date, period,
+                 prev_holding_units, prev_cost_per_unit, new_holding_units, new_cost_per_unit)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, fund_code, fund_name or '', op, amount, trade_date, period or '',
+                  prev_holding_units, prev_cost_per_unit, new_holding_units, new_cost_per_unit))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Insert position record failed: {e}")
+            return False
+
+    def get_position_records(self, user_id):
+        """获取用户的持仓记录列表，按创建时间倒序。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, fund_code, fund_name, op, amount, trade_date, period,
+                       prev_holding_units, prev_cost_per_unit, new_holding_units, new_cost_per_unit, created_at
+                FROM position_records WHERE user_id = ? ORDER BY created_at DESC
+            ''', (user_id,))
+            rows = cursor.fetchall()
+            conn.close()
+            return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Get position records failed: {e}")
+            return []
+
+    def delete_position_record_and_restore(self, user_id, record_id):
+        """删除一条持仓记录并撤销该次操作：将对应基金恢复为 prev_holding_units / prev_cost_per_unit。
+        返回 (success: bool, message: str)。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM position_records WHERE id = ? AND user_id = ?', (record_id, user_id))
+            row = cursor.fetchone()
+            if not row:
+                conn.close()
+                return False, '记录不存在或无权操作'
+            rec = dict(row)
+            fund_code = rec['fund_code']
+            prev_units = float(rec['prev_holding_units'])
+            prev_cost = float(rec['prev_cost_per_unit'])
+            shares = prev_units * prev_cost
+            cursor.execute("PRAGMA table_info(user_funds)")
+            columns = [c[1] for c in cursor.fetchall()]
+            if 'holding_units' in columns and 'cost_per_unit' in columns:
+                cursor.execute('''
+                    UPDATE user_funds SET shares = ?, holding_units = ?, cost_per_unit = ?
+                    WHERE user_id = ? AND fund_code = ?
+                ''', (shares, prev_units, prev_cost, user_id, fund_code))
+            else:
+                cursor.execute('UPDATE user_funds SET shares = ? WHERE user_id = ? AND fund_code = ?',
+                               (shares, user_id, fund_code))
+            if cursor.rowcount == 0:
+                conn.close()
+                return False, '基金不存在，无法恢复'
+            cursor.execute('DELETE FROM position_records WHERE id = ?', (record_id,))
+            conn.commit()
+            conn.close()
+            return True, '已撤销并恢复持仓'
+        except Exception as e:
+            logger.error(f"Delete position record and restore failed: {e}")
+            return False, str(e)
 
     def add_fund(self, user_id, fund_code, fund_key, fund_name):
         """添加基金到用户列表

@@ -1,436 +1,151 @@
-# LanFund - 基金市场辅助工具
+# LanFund - 基金与市场辅助工具
 
-![Star History Chart](https://api.star-history.com/svg?repos=lanZzV/fund&type=Date)
+基金自选、持仓统计、市场行情与贵金属数据的一体化工具，支持 **Web 端** 与 **命令行（CLI）** 双模式，数据可多端同步。
 
-一个功能强大的金融市场实时监控工具，支持命令行和Web两种模式，兼容移动端，可追踪基金估值、市场指数、黄金价格、行业板块和市场快讯。
+---
 
-体验地址: [http://lanfund.xyz34.fan:8311/](http://lanfund.xyz34.fan:8311/)
-> 小服务器经不起折腾, 轻点
+## 功能概览
 
-> 账号体系为了区分每个人自己的持仓, 用于导出配置文件功能使用
+| 类型 | 说明 |
+|------|------|
+| **Web 服务** | Flask 后端，登录后使用；左侧导航多页面，持仓与配置按用户存储 |
+| **CLI 客户端** | 本地运行 `fund.py`，通过账号与服务器同步自选与份额，支持 AI 分析 |
+| **数据同步** | 添加/删除基金、设置份额、板块标注等均会同步到服务器（多设备一致） |
 
-> 为了部署简单没做前后端分离
+---
 
-> **本部署说明**：注册已关闭，仅管理员可添加用户；持仓与观察列表按**份额是否大于 0** 区分（无单独「标记持有」）；持仓统计支持**累计收益修正**（显示值 = 现有累计收益 − 修正金额）。
+## 项目结构
 
-## 2026.02.09 更新
-
-- 增加黄金分时统计图
-- cli 模式同步服务器配置(修改份额、修改自选等无需操作两次)
-
-![页面9](imgs/页面9.png)
-
-### CLI 模式服务器同步配置
-
-CLI 模式现在支持从服务器自动同步基金配置，实现多端数据一致性。
-
-#### 初始化服务器连接
-
-首次使用需要初始化服务器连接配置：
-
-```bash
-python fund.py --init / fund.exe --int
+```
+fund/
+├── fund_server.py      # Web 服务入口（Flask）
+├── fund.py             # CLI 客户端入口
+├── requirements.txt    # Python 依赖
+├── cache/              # 本地缓存（DB、配置等）
+│   ├── fund_data.db    # SQLite：用户、自选基金、持仓记录等
+│   ├── fund_map.json   # CLI 本地/导出基金列表
+│   └── user_account.json # CLI 服务器连接配置
+├── src/
+│   ├── auth.py         # 登录鉴权
+│   ├── database.py     # 数据库与持仓记录
+│   ├── module_html.py  # 各页面 HTML 模板
+│   └── ai_analyzer.py  # AI 分析（可选）
+├── static/             # 静态资源（CSS/JS/图标）
+├── templates/          # 登录、管理后台等模板
+└── imgs/               # 文档截图
 ```
 
-按提示输入：
-- 服务器地址（默认: `http://localhost:8311`） (体验地址为: http://lanfund.xyz34.fan:8311，需由管理员创建账号)
-- 用户名
-- 密码
+---
 
-程序会自动验证连接并保存配置到 `cache/user_account.json`。
+## 安装与运行
 
-#### 自动同步
-
-初始化完成后，所有操作都会自动同步到服务器：
-
-```bash
-# 从服务器加载配置并查看
-python fund.py
-
-# 添加基金（自动同步到服务器）
-python fund.py -a
-
-# 删除基金（自动同步到服务器）
-python fund.py -d
-
-# 修改份额（自动同步到服务器）
-python fund.py -m
-```
-
-#### 配置文件格式
-
-`cache/user_account.json` 存储格式：
-
-```json
-{
-    "server_url": "http://192.168.1.100:8311",
-    "username": "your_username",
-    "password": "your_password",
-    "last_sync": "2026-02-09T16:30:00"
-}
-```
-
-#### 多端使用场景
-
-1. **在家用电脑**：通过 Web 界面（`http://localhost:8311`）添加基金、设置份额
-2. **在公司用 CLI**：自动同步家里的配置，无需重复设置
-3. **移动办公**：任何设备运行 CLI 都会获取最新配置
-
-#### 故障降级
-
-如果服务器连接失败，程序会自动降级到本地文件模式（`cache/fund_map.json`），确保功能可用。
-
-## 2026.02.05 更新
-
-- 上证分时移动到市场行情页面
-- 增加基金今日估值走势图
-
-![页面8](imgs/页面8.png)
-
-## ✨ 最新功能
-
-- 🏷️ **板块标注**: 支持为基金添加多个板块标签，便于分类管理
-- 📊 **持仓统计**: Web 端支持显示持仓金额、预估收益、实际收益等详细统计；**累计收益**支持修正（显示 = 现有累计收益 − 修正金额）
-- ✨ **一键炫耀**: 持仓统计页面炫酷卡片生成功能，支持截图分享今日收益
-- 💾 **数据导入导出**: 支持导出/导入基金配置，方便跨设备同步
-- 👤 **用户管理**（管理员）: 侧栏「用户管理」可添加/删除用户；注册已关闭
-
-## 运行截图
-
-![CLI截图](imgs/cli截图.png)
-
-![登录](imgs/登录.png)
-
-![页面6](imgs/页面6.png)
-
-![页面7](imgs/页面7.png)
-
-![页面1](imgs/页面1.png)
-
-![页面2](imgs/页面2.png)
-
-![页面3](imgs/页面3.png)
-
-![页面4](imgs/页面4.png)
-
-![页面5](imgs/页面5.png)
-
-
-## 功能特性
-
-### 数据监控
-
-- **基金实时估值**：实时更新基金估值、日涨幅、近30天涨跌趋势
-- **市场指数**：上证指数、深证指数、创业板指、纳斯达克、道琼斯等
-- **黄金价格**：中国黄金基础金价、周大福金价及历史数据
-- **行业板块**：各行业板块涨跌幅、主力资金流入情况
-- **7×24快讯**：实时金融市场新闻
-
-### 智能分析
-
-- **连涨/连跌分析**：自动计算基金连续涨跌天数和幅度
-- **30天趋势**：展示近30天涨跌分布，一目了然
-- **持仓与观察**：按份额是否大于 0 区分持仓列表与观察列表，无需单独「标记持有」
-- **彩色显示**：终端下红涨绿跌，直观易读
-
-### 双模式运行
-
-- **命令行模式**：快速查看，适合终端用户
-- **Web界面模式**：可视化展示，支持表格排序，适合浏览器访问
-
-### 💡 使用建议
-
-**推荐工作流程**：
-
-1. **Web 端首次配置**：建议所有用户（包括 CLI 用户）首次使用时通过 Web 界面进行配置
-    - 访问 `http://localhost:8311` 进行注册/登录
-    - 在 Web 界面添加基金、标记持有、标注板块、设置份额
-    - 配置完成后使用"导出基金列表"功能下载配置文件
-
-2. **CLI 用户同步配置**：
-   ```bash
-   # 将导出的 fund_map.json 复制到 cache 目录
-   cp fund_map.json cache/fund_map.json
-
-   # 之后即可在 CLI 模式下使用配置
-   python fund.py
-   ```
-
-**特性**：
-
-- Web 界面操作更直观，避免手动输入错误
-- 可视化选择板块，无需记忆板块编号
-- 支持批量操作，一次性完成多只基金的配置
-- 配置可跨设备共享，多端同步
-
-## 安装
-
-### 依赖安装
+### 1. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 依赖包说明
-
-- `loguru` - 日志输出
-- `requests` - HTTP请求
-- `tabulate` - 表格格式化
-- `flask` - Web服务器（仅Web模式需要）
-- `curl-cffi` - 浏览器模拟请求
-- `langchain` - AI提示链框架（AI分析功能）
-- `langchain-openai` - OpenAI兼容API支持
-- `langchain-core` - LangChain核心组件
-
-## 使用方法
-
-### 命令行模式
-
-#### 查看所有信息
-
-```bash
-python fund.py
-```
-
-或使用编译好的可执行文件：
-
-```bash
-./dist/fund.exe  # Windows
-```
-
-显示内容包括：
-
-- 7×24快讯
-- 行业板块排行
-- 实时金价
-- 黄金历史价格
-- 近7日A股成交量
-- 近30分钟上证指数
-- 市场指数汇总
-- 预估收益
-- 自选基金估值
-
-#### 管理自选基金
-
-**添加基金**
-
-```bash
-python fund.py -a
-# 根据提示输入基金代码，多个代码用英文逗号分隔
-# 例如：001618,161725,110011
-```
-
-**删除基金**
-
-```bash
-python fund.py -d
-# 根据提示输入要删除的基金代码
-```
-
-**标记基金板块**（独立功能）
-
-```bash
-python fund.py -e
-# 为基金添加板块标签，独立于持有标记
-# 标记后会在基金名称中显示板块信息
-```
-
-**删除板块标记**
-
-```bash
-python fund.py -u
-# 删除基金的板块标签
-```
-
-**查询基金板块**
-
-```bash
-python fund.py -s
-# 输入板块名称关键词，程序会列出相关的板块
-# 然后可以选择具体的板块查看该板块下的基金列表
-```
-
-**修改基金持仓份额**
-
-```bash
-python fund.py -m
-# 根据提示输入基金代码和持仓份额
-# 用于设置每只基金的持有份额，用于计算收益统计
-```
-
-### AI分析命令
-
-#### 启用AI分析
-
-```bash
-# 启用AI分析（必须使用 -W 参数）
-python fund.py -W           # 标准分析模式（~1200-1600字）
-python fund.py -f -W        # 快速分析模式（~400-500字）
-python fund.py -F -W        # 快速分析模式（备用参数）
-python fund.py -D -W        # 深度研究模式（ReAct Agent，10000+字）
-python fund.py --deep -W    # 深度研究模式（备用参数）
-
-# 注意：不使用 -W 参数时，默认不进行AI分析
-```
-
-#### 输出AI报告到文件
-
-```bash
-python fund.py -o           # 保存到 reports/ 目录
-python fund.py -o custom    # 保存到 custom/ 目录
-```
-
-### Web服务器模式
-
-#### 启动服务
+### 2. 启动 Web 服务
 
 ```bash
 python fund_server.py
 ```
 
-服务默认运行在：`http://0.0.0.0:8311`
+- 默认地址：`http://0.0.0.0:8311`
+- 浏览器访问：`http://localhost:8311`（根路径会重定向到持仓基金页）
+- **注册已关闭**：需由管理员在「用户管理」中创建账号后再登录
 
-#### 访问地址
+### 3. CLI 客户端（可选）
 
-浏览器访问：`http://localhost:8311/fund`
-
-#### Web 操作功能
-
-在"自选基金"页面，可以直接通过页面操作基金：
-
-**添加自选基金**
-**删除自选基金**
-**标注板块**
-**设置持仓份额**
-**一键炫耀（分享收益卡片）**
-**累计收益修正**（持仓统计中累计收益旁的「修正」按钮）
-
-## 打包为可执行文件
-
-使用 PyInstaller 将程序打包为独立的可执行文件：
+首次使用需先配置服务器连接：
 
 ```bash
-pyinstaller fund.spec
-```
-
-打包完成后，可执行文件位于 `dist/fund.exe`（Windows）或 `dist/fund`（Linux/Mac）。
-
-## Docker 部署
-
-### 构建镜像
-
-```bash
-docker build -t lanfund .
-```
-
-### 运行容器
-
-```bash
-# 基础运行
-docker run -d -p 8311:8311 --name lanfund lanfund
-
-# 带数据持久化（推荐）
-docker run -d -p 8311:8311 --name lanfund -v /cache:/app/cache lanfund
-
-
-### 常用命令
-
-```bash
-# 查看日志
-docker logs -f lanfund
-
-# 停止容器
-docker stop lanfund
-
-# 启动已停止的容器
-docker start lanfund
-
-# 删除容器
-docker rm lanfund
-
-# 删除镜像
-docker rmi lanfund
-```
-
-访问地址：`http://localhost:8311`
-
-## AI智能分析（可选）
-
-程序集成了最新版本的**LangChain (0.3.27+)**，使用**提示链（Prompt Chain）模式**生成深度AI分析报告。
-
-### 三种分析模式
-
-程序支持三种不同的AI分析模式，满足不同场景需求：
-
-#### 标准模式（默认）
-
-```bash
-python fund.py -W      # 启用AI分析
-```
-
-- **输出长度**：1,200-1,600字（4个维度 × 300-400字）
-- **生成时间**：2-3分钟
-- **token消耗**：4,000-6,000
-- **适用场景**：日常快速查看，平衡速度和质量
-
-#### 快速模式
-
-```bash
-python fund.py -f -W   # 快速分析
+python fund.py --init
 # 或
-python fund.py -F -W
+python fund.exe --init
 ```
 
-- **输出长度**：400-500字（简明报告）
-- **生成时间**：30-60秒
-- **token消耗**：~1,000
-- **适用场景**：快速浏览市场概况，节省成本
+按提示输入：服务器地址（如 `http://localhost:8311`）、用户名、密码。配置会写入 `cache/user_account.json`，后续添加/删除基金、修改份额等会自动与服务器同步。
 
-#### 深度研究模式
+---
 
-```bash
-python fund.py -D -W   # 深度研究模式
-# 或
-python fund.py --deep -W
-```
+## Web 端功能
 
-- **输出长度**：10,000-12,000字（专业行研报告）
-- **生成时间**：5-10分钟
-- **token消耗**：~20,000
-- **成本**：约为标准模式的**6倍**
-- **特色功能**：
-    - 🤖 **ReAct Agent自主研究**：Agent自主决定数据收集策略
-    - 🌍 **多源信息交叉验证**：使用DuckDuckGo搜索国际媒体报道
-    - 📰 **网页深度抓取**：获取完整新闻文章内容
-    - 🔍 **官方vs市场视角对比**：明确区分官方快讯与独立媒体观点
-    - 📊 **详尽的量化分析**：每个事件500-1000字深度解读
-    - 💼 **具体操作计划**：可执行的交易策略和触发条件
-- **适用场景**：周末复盘、重要决策前的全面研究、专业投资分析
+### 左侧导航页面
 
-**模式对比表**：
+| 入口 | 路径 | 说明 |
+|------|------|------|
+| 📈 市场行情 | `/market` | 7×24 快讯等市场资讯 |
+| 📊 市场指数 | `/market-indices` | 全球指数、成交量趋势、上证分时等 |
+| 🥇 贵金属行情 | `/precious-metals` | 实时贵金属、分时金价、历史金价 |
+| 💰 持仓基金 | `/portfolio` | 自选基金列表、估值走势图、加减仓、份额设置 |
+| 📋 持仓记录 | `/position-records` | 加减仓记录列表，删除即撤销该次操作 |
+| 🏢 行业板块 | `/sectors` | 板块涨跌、板块下基金查询 |
+| ⚙ 用户管理 | `/admin/users` | 仅管理员：添加/删除用户、修改资料 |
 
-| 特性    | 快速模式    | 标准模式         | 深度研究模式        |
-|-------|---------|--------------|---------------|
-| 字数    | 400-500 | 1,200-1,600  | 10,000-12,000 |
-| 时间    | 30-60秒  | 2-3分钟        | 5-10分钟        |
-| Token | ~1,000  | ~4,000-6,000 | ~20,000       |
-| 成本    | ¥0.002  | ¥0.01-0.02   | ¥0.06-0.12    |
-| 信息源   | 本地数据    | 本地数据         | 本地+网络搜索       |
-| 分析深度  | 概要      | 标准           | 专业级           |
+### 持仓基金页（核心）
 
-### 配置方式
+- **自选管理**：添加/删除基金、标注板块、删除板块标签
+- **持仓数据**：持有份额、持仓成本（持仓份额 = 持有份额 × 持仓成本）、持仓金额、预估/实际收益、累计收益
+- **累计收益修正**：支持“显示累计收益 = 现有累计收益 − 修正金额”
+- **设置/修改份额**：弹窗内填写持有份额与每份成本，自动计算持仓份额
+- **同步加仓/减仓**：按金额与买入/卖出时间同步，写入持仓记录；未填金额或未选时间会弹窗提醒
+- **一键炫耀**：生成今日收益分享卡片，可截图
+- **导出/导入**：导出基金列表 JSON，或上传 JSON 恢复配置
 
-#### 方式1：使用.env文件（推荐）
+### 持仓记录页
 
-创建 `.env` 文件：
+- 列表字段：基金编号、基金名称、操作时间、操作方式（加仓/减仓）、加减仓金额
+- **删除即撤销**：删除某条记录会恢复该次操作前的持仓（持有份额与成本）
 
-```bash
-LLM_API_KEY=your-api-key
-LLM_API_BASE=https://api.moonshot.cn/v1
-LLM_MODEL=moonshot-v1-8k
-```
+### 用户与权限
 
-或者使用DeepSeek：
+- 登录/登出、可选「记住我」
+- 管理员：用户管理、添加用户、删除用户（不可删管理员）、修改本人资料
+
+---
+
+## CLI 端功能
+
+在配置好 `cache/user_account.json` 后，以下操作会与服务器同步。
+
+| 命令 | 说明 |
+|------|------|
+| `python fund.py` | 拉取服务器配置并展示：快讯、板块、金价、指数、成交量、上证分时、自选估值等 |
+| `python fund.py -a` | 添加基金（可多码逗号分隔） |
+| `python fund.py -d` | 删除基金 |
+| `python fund.py -m` | 修改持仓份额（持有份额/成本） |
+| `python fund.py -e` | 为基金标注板块 |
+| `python fund.py -u` | 删除基金板块标注 |
+| `python fund.py -s` | 按板块关键词查询板块及旗下基金 |
+| `python fund.py --init` | 初始化/重置服务器连接配置 |
+
+### AI 分析（可选，需配置 LLM）
+
+| 命令 | 说明 |
+|------|------|
+| `python fund.py -W` | 标准分析（约 1200–1600 字） |
+| `python fund.py -f -W` / `-F -W` | 快速分析（约 400–500 字） |
+| `python fund.py -D -W` / `--deep -W` | 深度研究（ReAct Agent，约 10000+ 字） |
+| `python fund.py -o [目录]` | 将报告保存到指定目录（默认 `reports/`） |
+
+需在 `.env` 或环境中配置 `LLM_API_KEY`、`LLM_API_BASE`、`LLM_MODEL`（OpenAI 兼容接口，如 Moonshot、DeepSeek 等）。
+
+---
+
+## 配置说明
+
+### CLI 服务器配置
+
+- 文件：`cache/user_account.json`
+- 字段：`server_url`、`username`、`password`
+- 通过 `python fund.py --init` 交互写入；服务器不可用时 CLI 可降级使用本地 `cache/fund_map.json`
+
+### Web 环境变量
+
+- 见 `.env.example`；如 Session 密钥等可按需配置
+
+### AI 分析（.env）
 
 ```bash
 LLM_API_KEY=your-api-key
@@ -438,35 +153,67 @@ LLM_API_BASE=https://api.deepseek.com/v1
 LLM_MODEL=deepseek-chat
 ```
 
-#### 方式2：临时配置
+---
 
-```bash
-export LLM_API_KEY="your-api-key"
-export LLM_API_BASE="https://api.deepseek.com/v1"
-export LLM_MODEL="deepseek-chat"
+## 主要 API（供前端/CLI 调用）
 
-python3 fund.py
-```
-
-#### 方式3：永久配置
-
-在 `~/.bashrc` 或 `~/.zshrc` 添加：
-
-```bash
-export LLM_API_KEY="your-api-key"
-export LLM_API_BASE="https://api.deepseek.com/v1"
-export LLM_MODEL="deepseek-chat"
-```
-
-然后 `source ~/.bashrc` 生效。
-
-### 支持的AI服务
-
-OpenAI兼容格式，推荐标准模式用thinking模型，深度研究模式使用控制工具厉害的模型如claude-sonnet或kimi-k2
-
-## 免责声明
-
-本工具仅提供数据展示功能，不构成任何投资建议。投资有风险，入市需谨慎。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/auth/login` | 登录 |
+| GET  | `/api/auth/me` | 当前用户信息 |
+| GET  | `/api/fund/data` | 当前用户基金列表（含份额等） |
+| POST | `/api/fund/add` | 添加基金 |
+| POST | `/api/fund/delete` | 删除基金 |
+| POST | `/api/fund/shares` | 更新持仓（持有份额、成本；可带 record 写入加减仓记录） |
+| GET  | `/api/fund/position-records` | 持仓记录列表 |
+| DELETE | `/api/fund/position-records/<id>` | 删除记录并撤销该次加减仓 |
+| POST | `/api/fund/sector` | 标注板块 |
+| POST | `/api/fund/sector/remove` | 删除板块标注 |
+| GET  | `/api/fund/download` | 导出基金配置 JSON |
+| POST | `/api/fund/upload` | 上传基金配置 JSON |
+| GET  | `/api/fund/chart-data` | 基金估值趋势图数据 |
+| GET  | `/api/gold/real-time` | 实时贵金属 |
+| GET  | `/api/gold/history` | 黄金历史 |
+| GET  | `/api/news/7x24` | 7×24 快讯 |
+| GET  | `/api/indices/global` | 全球指数 |
+| GET  | `/api/sectors` | 板块数据 |
+| POST | `/api/client/fund/config` | 客户端拉取/推送配置（账号密码认证） |
 
 ---
 
+## Docker 部署
+
+```bash
+# 构建
+docker build -t lanfund .
+
+# 运行（推荐挂载 cache 持久化）
+docker run -d -p 8311:8311 --name lanfund -v $(pwd)/cache:/app/cache lanfund
+```
+
+访问：`http://localhost:8311`
+
+---
+
+## 打包为可执行文件
+
+```bash
+pyinstaller fund.spec
+```
+
+可执行文件输出在 `dist/`（如 `fund.exe`）。
+
+---
+
+## 依赖概览
+
+- **Web/通用**：flask, python-dotenv, bcrypt, loguru, requests, tabulate, wcwidth, curl_cffi
+- **AI 分析（可选）**：langchain, langchain-openai, langchain-core, ddgs, beautifulsoup4, lxml
+
+详见 `requirements.txt`。
+
+---
+
+## 免责声明
+
+本工具仅用于数据展示与个人记录，不构成任何投资建议。投资有风险，入市需谨慎。

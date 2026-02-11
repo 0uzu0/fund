@@ -6,3 +6,5 @@ build/
 CLAUDE.md
 cache/fund_data.db
 dist/
+src/__pycache__
+__pycache__

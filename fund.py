@@ -804,7 +804,7 @@ class LanFund:
                 if 'fund_details' in position_summary and position_summary['fund_details']:
                     logger.critical(f"{time.strftime('%Y-%m-%d %H:%M')} 分基金涨跌明细:")
 
-                    # 准备表格数据（持仓金额=持仓份额×净值，累计收益=(净值-持仓成本)×持有份额）
+                    # 准备表格数据（持仓金额=净值×持有份额，累计收益=(净值-持仓成本)×持有份额）
                     table_data = []
                     for detail in position_summary['fund_details']:
                         est_color = '\033[1;31m' if detail['estimated_gain'] >= 0 else '\033[1;32m'
@@ -905,8 +905,22 @@ class LanFund:
                 else:
                     day_growth = 0
 
-                # 计算持仓价值（用于汇总与收益）
-                position_value = shares * net_value
+                # 持有份额、持仓成本（用于持仓金额与累计收益）
+                cache = self.CACHE_MAP.get(fund_code, {})
+                holding_units = cache.get('holding_units')
+                cost_per_unit = cache.get('cost_per_unit')
+                if holding_units is None:
+                    holding_units = shares
+                if cost_per_unit is None:
+                    cost_per_unit = 1.0
+                try:
+                    holding_units = float(holding_units)
+                    cost_per_unit = float(cost_per_unit)
+                except (TypeError, ValueError):
+                    holding_units, cost_per_unit = shares, 1.0
+
+                # 分基金涨跌明细：持仓金额 = 净值 × 持有份额，累计收益 = (净值 - 持仓成本) × 持有份额
+                position_value = holding_units * net_value
                 total_value += position_value
 
                 # 计算预估涨跌（始终计算）
@@ -922,19 +936,6 @@ class LanFund:
                     actual_gain += fund_act_gain
                     settled_value += position_value
 
-                # 累计收益 = (净值 - 持仓成本) × 持有份额
-                cache = self.CACHE_MAP.get(fund_code, {})
-                holding_units = cache.get('holding_units')
-                cost_per_unit = cache.get('cost_per_unit')
-                if holding_units is None:
-                    holding_units = shares
-                if cost_per_unit is None:
-                    cost_per_unit = 1.0
-                try:
-                    holding_units = float(holding_units)
-                    cost_per_unit = float(cost_per_unit)
-                except (TypeError, ValueError):
-                    holding_units, cost_per_unit = shares, 1.0
                 cumulative_return = (net_value - cost_per_unit) * holding_units
 
                 # 保存每个基金的详细信息

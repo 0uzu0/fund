@@ -71,19 +71,18 @@ def enhance_fund_tab_content(content, shares_map=None):
             </div>
         </div>
 
-        <!-- 累计收益修正弹窗 -->
-        <div id="cumulativeCorrectionModal" class="cumulative-correction-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;" onclick="closeCumulativeCorrectionModal()">
-            <div class="cumulative-correction-dialog" onclick="event.stopPropagation()" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; min-width: 320px; max-width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; color: var(--text-main);">修正累计收益</h3>
+        <!-- 累计收益修正弹窗（与其它弹窗统一样式） -->
+        <div id="cumulativeCorrectionModal" class="cumulative-correction-modal" onclick="closeCumulativeCorrectionModal()">
+            <div class="cumulative-correction-dialog" onclick="event.stopPropagation()">
+                <h3 class="sector-modal-header" style="margin: 0 0 16px 0;">修正累计收益</h3>
                 <p style="font-size: 13px; color: var(--text-dim); margin: 0 0 12px 0;">显示累计收益 = 现有累计收益 − 修正金额</p>
                 <div style="margin-bottom: 16px;">
                     <label style="display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px;">修正金额（元）</label>
-                    <input type="number" id="cumulativeCorrectionInput" step="0.01" placeholder="0"
-                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--text-main); box-sizing: border-box;">
+                    <input type="number" id="cumulativeCorrectionInput" step="0.01" placeholder="0" class="sector-modal-search" style="margin-bottom: 0;">
                 </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button type="button" onclick="closeCumulativeCorrectionModal()" style="padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-main); cursor: pointer;">取消</button>
-                    <button type="button" onclick="applyCumulativeCorrection()" style="padding: 8px 16px; border: none; border-radius: 8px; background: var(--accent); color: white; cursor: pointer;">确定</button>
+                <div class="sector-modal-footer" style="margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCumulativeCorrectionModal()">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="applyCumulativeCorrection()">确定</button>
                 </div>
             </div>
         </div>
@@ -102,6 +101,7 @@ def enhance_fund_tab_content(content, shares_map=None):
                             <th class="sortable" onclick="sortTable(this.closest('table'), 5)" style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; color: var(--text-dim); font-weight: 500; cursor: pointer; user-select: none;">实际收益</th>
                             <th class="sortable" onclick="sortTable(this.closest('table'), 6)" style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; color: var(--text-dim); font-weight: 500; cursor: pointer; user-select: none;">实际涨跌</th>
                             <th class="sortable" onclick="sortTable(this.closest('table'), 7)" style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; color: var(--text-dim); font-weight: 500; cursor: pointer; user-select: none;">累计收益</th>
+                            <th style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; color: var(--text-dim); font-weight: 500;">修改持仓</th>
                         </tr>
                     </thead>
                     <tbody id="fundDetailsTableBody">
@@ -268,10 +268,11 @@ def get_top_navbar_html(username=None):
 def get_sidebar_menu_items_html(active_page, is_admin=False):
     """侧边栏菜单项 HTML（含可选的用户管理），供各页面复用"""
     menu_items = [
-        ('market', '📰', '市场行情'),
+        ('market', '📈', '市场行情'),
         ('market-indices', '📊', '市场指数'),
-        ('precious-metals', '🪙', '贵金属行情'),
-        ('portfolio', '💼', '持仓基金'),
+        ('precious-metals', '🥇', '贵金属行情'),
+        ('portfolio', '💰', '持仓基金'),
+        ('position-records', '📋', '持仓记录'),
         ('sectors', '🏢', '行业板块'),
     ]
     menu_html = ''
@@ -288,7 +289,7 @@ def get_sidebar_menu_items_html(active_page, is_admin=False):
         admin_active = 'active' if active_page == 'admin-users' else ''
         menu_html += f'''
             <a href="/admin/users" class="sidebar-item {admin_active}">
-                <span class="sidebar-icon">👤</span>
+                <span class="sidebar-icon">⚙</span>
                 <span>用户管理</span>
             </a>
         '''
@@ -648,7 +649,7 @@ def get_full_page_html_sidebar(tabs_data, username=None):
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label for="sharesModalCostPerUnit" style="display: block; margin-bottom: 8px; color: var(--text-main); font-weight: 500;">持仓成本（每份成本）</label>
-                    <input type="number" id="sharesModalCostPerUnit" step="0.01" min="0" placeholder="请输入每份成本"
+                    <input type="number" id="sharesModalCostPerUnit" step="0.0001" min="0" placeholder="请输入每份成本"
                            oninput="if(window.updateSharesModalResult) window.updateSharesModalResult()"
                            style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text-main);">
                 </div>
@@ -662,6 +663,135 @@ def get_full_page_html_sidebar(tabs_data, username=None):
             </div>
         </div>
     </div>
+
+    <!-- 同步加仓弹窗 -->
+    <div id="addPositionModal" class="sector-modal">
+        <div class="sector-modal-content add-position-modal-content" style="max-width: 420px;">
+            <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>同步加仓</span>
+                <button type="button" onclick="closeAddPositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+            </div>
+            <div style="padding: 16px 20px;">
+                <div class="add-position-tip" style="display: none; background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">
+                    <span id="addPositionTipText"></span>
+                    <button type="button" onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; cursor: pointer; color: #92400e;">×</button>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <div id="addPositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
+                    <div id="addPositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                </div>
+                <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
+                    <span style="font-size: 13px; color: var(--text-dim);">最新净值</span><span id="addPositionNetValueDate" style="font-size: 12px; color: var(--text-dim); margin-left: 4px;"></span><span id="addPositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 6px;"></span>
+                    <span id="addPositionNetValuePct" style="font-size: 13px; margin-left: 6px;"></span>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">同步加仓金额</label>
+                    <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
+                        <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
+                        <input type="number" id="addPositionAmount" step="0.01" min="0" placeholder="已买入金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateAddPositionFee) window.updateAddPositionFee()">
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">买入费率</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0" checked style="margin-right: 4px;">0.0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.1" style="margin-right: 4px;">0.1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.15" style="margin-right: 4px;">0.15%</label>
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                    估算手续费 <span id="addPositionFee">0.00</span> 元
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台买入时间</label>
+                    <div id="addPositionTimeDisplay" onclick="openAddPositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                        <span id="addPositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span style="color: var(--text-dim);">▼</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sector-modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddPositionModal()">取消</button>
+                <button type="button" id="addPositionConfirmBtn" class="btn btn-primary" onclick="confirmAddPosition()" disabled>确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加仓时间选择器（约占加仓弹窗 90%） -->
+    <div id="addPositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
+        <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
+                <button type="button" onclick="closeAddPositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">加仓时间</span>
+                <button type="button" onclick="confirmAddPositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+            </div>
+            <div id="addPositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;">
+                <!-- 选项由 JS 动态生成 -->
+            </div>
+        </div>
+    </div>
+    <div id="addPositionTimePickerOverlay" onclick="closeAddPositionTimePicker()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10001;"></div>
+
+    <!-- 减仓弹窗 -->
+    <div id="reducePositionModal" class="sector-modal">
+        <div class="sector-modal-content" style="max-width: 420px;">
+            <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>同步减仓</span>
+                <button type="button" onclick="closeReducePositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+            </div>
+            <div style="padding: 16px 20px;">
+                <div style="margin-bottom: 12px;">
+                    <div id="reducePositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
+                    <div id="reducePositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                </div>
+                <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
+                    <span style="font-size: 13px; color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
+                    <span style="font-size: 12px; color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
+                    <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
+                        <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
+                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                    估算手续费 <span id="reducePositionFee">0.00</span> 元
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
+                    <div id="reducePositionTimeDisplay" onclick="openReducePositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                        <span id="reducePositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span style="color: var(--text-dim);">▼</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sector-modal-footer">
+                <button class="btn btn-secondary" onclick="closeReducePositionModal()">取消</button>
+                <button type="button" id="reducePositionConfirmBtn" class="btn btn-primary" onclick="confirmReducePosition()" disabled>确认</button>
+            </div>
+        </div>
+    </div>
+    <div id="reducePositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
+        <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
+                <button type="button" onclick="closeReducePositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">卖出时间</span>
+                <button type="button" onclick="confirmReducePositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+            </div>
+            <div id="reducePositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;"></div>
+        </div>
+    </div>
+    <div id="reducePositionTimePickerOverlay" onclick="closeReducePositionTimePicker()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10001;"></div>
 
     {js_script}
     <script src="/static/js/main.js"></script>
@@ -3049,8 +3179,10 @@ def get_javascript_code():
         if (fundCodeDisplay) fundCodeDisplay.textContent = fundCode;
         if (holdingInput && costInput) {
             const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
-            holdingInput.value = hold ? (hold.holding_units > 0 ? hold.holding_units : '') : (sharesValue > 0 ? sharesValue : '');
-            costInput.value = hold ? hold.cost_per_unit : 1;
+            const units = hold ? hold.holding_units : sharesValue;
+            const cost = hold ? hold.cost_per_unit : 1;
+            holdingInput.value = (parseFloat(units) || 0) > 0 ? (parseFloat(units) || 0).toFixed(2) : '';
+            costInput.value = (parseFloat(cost) || 0) > 0 ? (parseFloat(cost) || 1).toFixed(4) : '';
             window.updateSharesModalResult();
         }
         const header = modal ? modal.querySelector('.sector-modal-header') : null;
@@ -3258,10 +3390,15 @@ def get_javascript_code():
                 // 解析近30天
                 const monthlyText = cells[8].textContent.trim();
 
-                // 计算持仓价值（用于汇总与收益）
-                const positionValue = shares * netValue;
+                // 第一：分基金涨跌明细-持仓金额 由「持仓金额-修改」中的持有份额与持仓成本计算得出
+                if (!window.fundHoldingData) window.fundHoldingData = {{}};
+                let hold = window.fundHoldingData[fundCode];
+                let holding_units = hold ? (parseFloat(hold.holding_units) || 0) : shares;
+                let cost_per_unit = hold ? (parseFloat(hold.cost_per_unit) || 1) : 1;
+                if (!hold) window.fundHoldingData[fundCode] = {{ holding_units: holding_units, cost_per_unit: cost_per_unit }};
+                const positionAmount = netValue * holding_units;  // 持仓金额 = 净值 × 持有份额（来自修改）
 
-                // 有份额的基金纳入持仓卡片数据
+                // 有份额的基金纳入持仓卡片数据（使用同一持仓金额口径）
                 heldFundsData.push({
                         code: fundCode,
                         name: fundDataMap[fundCode]?.fund_name || 'Unknown',
@@ -3273,37 +3410,48 @@ def get_javascript_code():
                         consecutive: consecutiveText,
                         monthly: monthlyText,
                         shares: shares,
-                        positionValue: positionValue
+                        positionValue: positionAmount
                     });
 
                 if (shares > 0) {
-                    // 计算预估涨跌
-                    const fundEstimatedGain = positionValue * estimatedGrowth / 100;
+                    // 计算预估涨跌、实际涨跌（均基于同一持仓金额：净值×持有份额）
+                    const fundEstimatedGain = positionAmount * estimatedGrowth / 100;
                     estimatedGain += fundEstimatedGain;
-
-                    // 计算实际涨跌（仅当日结算）
                     let fundActualGain = 0;
                     if (netValueDate === today) {
-                        fundActualGain = positionValue * dayGrowth / 100;
+                        fundActualGain = positionAmount * dayGrowth / 100;
                         actualGain += fundActualGain;
-                        settledValue += positionValue;
+                        settledValue += positionAmount;
                     }
 
                     // Collect fund details for summary table（累计收益=(净值-持仓成本)×持有份额）
                     const fundName = cells[2].textContent.trim();
-                    const hold = window.fundHoldingData && window.fundHoldingData[fundCode];
-                    const holding_units = hold ? (parseFloat(hold.holding_units) || 0) : shares;
-                    const cost_per_unit = hold ? (parseFloat(hold.cost_per_unit) || 1) : 1;
                     const cumulativeReturn = (netValue - cost_per_unit) * holding_units;
-                    // 持仓金额 = 净值 × 持有份额（总持仓金额 = 分基金涨跌明细中持仓金额列之和）
-                    const positionAmount = netValue * holding_units;
-                    totalValue += positionAmount;
+                    // 显示持仓金额：扣除未到账加仓、加上未到账减仓（与修改页一致）
+                    let pendingAddSum = 0;
+                    let pendingReduceSum = 0;
+                    try {{
+                        const pendingRaw = localStorage.getItem('lan_fund_pending_adds');
+                        const pendingList = pendingRaw ? JSON.parse(pendingRaw) : [];
+                        const stillPending = pendingList.filter(function (p) {{ return p.settlementDate > today; }});
+                        if (stillPending.length !== pendingList.length) localStorage.setItem('lan_fund_pending_adds', JSON.stringify(stillPending));
+                        pendingAddSum = stillPending.filter(function (p) {{ return p.fundCode === fundCode; }}).reduce(function (s, p) {{ return s + (p.amount || 0); }}, 0);
+                    }} catch (e) {{}}
+                    try {{
+                        const reduceRaw = localStorage.getItem('lan_fund_pending_reduces');
+                        const reduceList = reduceRaw ? JSON.parse(reduceRaw) : [];
+                        const stillPendingReduce = reduceList.filter(function (p) {{ return p.settlementDate > today; }});
+                        if (stillPendingReduce.length !== reduceList.length) localStorage.setItem('lan_fund_pending_reduces', JSON.stringify(stillPendingReduce));
+                        pendingReduceSum = stillPendingReduce.filter(function (p) {{ return p.fundCode === fundCode; }}).reduce(function (s, p) {{ return s + (p.amount || 0); }}, 0);
+                    }} catch (e) {{}}
+                    const displayPositionAmount = Math.max(0, positionAmount - pendingAddSum + pendingReduceSum);
+                    totalValue += displayPositionAmount;
                     fundDetailsData.push({
                         code: fundCode,
                         name: fundName,
                         shares: shares,
-                        positionValue: positionValue,
-                        positionAmount: positionAmount,
+                        positionValue: positionAmount,
+                        positionAmount: displayPositionAmount,
                         netValue: netValue,
                         holding_units: holding_units,
                         cost_per_unit: cost_per_unit,
@@ -3484,6 +3632,10 @@ def get_javascript_code():
                                 <td style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}¥${Math.abs(fund.actualGain).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                 <td style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}${Math.abs(fund.actualGainPct).toFixed(2)}%</td>
                                 <td style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; font-family: var(--font-mono); color: ${cumColor}; font-weight: 500;">${cumSign}¥${Math.abs(fund.cumulativeReturn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td style="padding: 10px; text-align: center; vertical-align: middle;">
+                                    <button type="button" class="btn-add-position" onclick="openAddPositionModal('${fund.code}')" style="margin-right: 6px; padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--accent); background: rgba(59, 130, 246, 0.15); color: var(--accent); cursor: pointer;">加仓</button>
+                                    <button type="button" class="btn-reduce-position" onclick="openReducePositionModal('${fund.code}')" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.15); color: var(--text-main); cursor: pointer;">减仓</button>
+                                </td>
                             </tr>
                         `;
                     }).join('');
@@ -4666,7 +4818,7 @@ def get_precious_metals_page_html(metals_data, username=None, is_admin=False):
             <!-- 页面标题 -->
             <div class="page-header">
                 <h1 style="display: flex; align-items: center;">
-                    🪙 贵金属行情
+                    🥇 贵金属行情
                     <button id="refreshBtn" onclick="refreshCurrentPage()" class="refresh-button" style="margin-left: 15px; padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;">🔄 刷新</button>
                 </h1>
                 <p>实时追踪贵金属价格走势</p>
@@ -6026,9 +6178,12 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label for="sharesModalCostPerUnit" style="display: block; margin-bottom: 8px; color: var(--text-main); font-weight: 500;">持仓成本（每份成本）</label>
-                    <input type="number" id="sharesModalCostPerUnit" step="0.01" min="0" placeholder="请输入每份成本"
+                    <input type="number" id="sharesModalCostPerUnit" step="0.0001" min="0" placeholder="请输入每份成本"
                            oninput="if(window.updateSharesModalResult) window.updateSharesModalResult()"
                            style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text-main);">
+                </div>
+                <div style="margin-bottom: 8px; padding: 10px; background: var(--border); border-radius: 6px;">
+                    <strong id="sharesModalResult" style="display: block; color: var(--text-main); font-family: var(--font-mono);">0.00</strong>
                 </div>
             </div>
             <div class="sector-modal-footer">
@@ -6037,6 +6192,129 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
             </div>
         </div>
     </div>
+
+    <!-- 同步加仓弹窗 -->
+    <div id="addPositionModal" class="sector-modal">
+        <div class="sector-modal-content add-position-modal-content" style="max-width: 420px;">
+            <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>同步加仓</span>
+                <button type="button" onclick="closeAddPositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+            </div>
+            <div style="padding: 16px 20px;">
+                <div class="add-position-tip" style="display: none; background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">
+                    <span id="addPositionTipText"></span>
+                    <button type="button" onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; cursor: pointer; color: #92400e;">×</button>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <div id="addPositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
+                    <div id="addPositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                </div>
+                <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
+                    <span style="font-size: 13px; color: var(--text-dim);">最新净值</span><span id="addPositionNetValueDate" style="font-size: 12px; color: var(--text-dim); margin-left: 4px;"></span><span id="addPositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 6px;"></span>
+                    <span id="addPositionNetValuePct" style="font-size: 13px; margin-left: 6px;"></span>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">同步加仓金额</label>
+                    <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
+                        <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
+                        <input type="number" id="addPositionAmount" step="0.01" min="0" placeholder="已买入金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateAddPositionFee) window.updateAddPositionFee()">
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">买入费率</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0" checked style="margin-right: 4px;">0.0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.1" style="margin-right: 4px;">0.1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.15" style="margin-right: 4px;">0.15%</label>
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                    估算手续费 <span id="addPositionFee">0.00</span> 元
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台买入时间</label>
+                    <div id="addPositionTimeDisplay" onclick="openAddPositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                        <span id="addPositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span style="color: var(--text-dim);">▼</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sector-modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddPositionModal()">取消</button>
+                <button type="button" id="addPositionConfirmBtn" class="btn btn-primary" onclick="confirmAddPosition()" disabled>确认</button>
+            </div>
+        </div>
+    </div>
+    <div id="addPositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
+        <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
+                <button type="button" onclick="closeAddPositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">加仓时间</span>
+                <button type="button" onclick="confirmAddPositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+            </div>
+            <div id="addPositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;"></div>
+        </div>
+    </div>
+    <div id="addPositionTimePickerOverlay" onclick="closeAddPositionTimePicker()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10001;"></div>
+    <div id="reducePositionModal" class="sector-modal">
+        <div class="sector-modal-content" style="max-width: 420px;">
+            <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>同步减仓</span>
+                <button type="button" onclick="closeReducePositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+            </div>
+            <div style="padding: 16px 20px;">
+                <div style="margin-bottom: 12px;">
+                    <div id="reducePositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
+                    <div id="reducePositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                </div>
+                <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
+                    <span style="font-size: 13px; color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
+                    <span style="font-size: 12px; color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
+                    <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
+                        <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
+                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                    估算手续费 <span id="reducePositionFee">0.00</span> 元
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
+                    <div id="reducePositionTimeDisplay" onclick="openReducePositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                        <span id="reducePositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span style="color: var(--text-dim);">▼</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sector-modal-footer">
+                <button class="btn btn-secondary" onclick="closeReducePositionModal()">取消</button>
+                <button type="button" id="reducePositionConfirmBtn" class="btn btn-primary" onclick="confirmReducePosition()" disabled>确认</button>
+            </div>
+        </div>
+    </div>
+    <div id="reducePositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
+        <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
+                <button type="button" onclick="closeReducePositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">卖出时间</span>
+                <button type="button" onclick="confirmReducePositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+            </div>
+            <div id="reducePositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;"></div>
+        </div>
+    </div>
+    <div id="reducePositionTimePickerOverlay" onclick="closeReducePositionTimePicker()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10001;"></div>
 
     <script src="/static/js/main.js"></script>
     <script>
@@ -6424,6 +6702,180 @@ def get_market_icon(key):
         'select_fund': '🔍'
     }
     return icons.get(key, '📊')
+
+
+def get_position_records_page_html(username=None, is_admin=False):
+    """生成持仓记录页面（加减仓记录，删除即撤销）"""
+    css_style = get_css_style()
+    sidebar_menu_html = get_sidebar_menu_items_html('position-records', is_admin)
+
+    username_display = ''
+    if username:
+        username_display += '<span class="nav-user">🍎 {username}</span>'.format(username=username)
+        username_display += '<a href="/logout" class="nav-logout">退出登录</a>'
+
+    html = '''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>持仓记录 - LanFund</title>
+    <link rel="icon" href="/static/1.ico">
+    {css_style}
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {{ background-color: var(--terminal-bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }}
+        /* 顶部导航栏（与其他页面一致） */
+        .top-navbar {{ background-color: var(--card-bg); color: var(--text-main); padding: 0.8rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }}
+        .top-navbar-brand {{ display: flex; align-items: center; flex: 0 0 auto; }}
+        .top-navbar-quote {{ flex: 1; text-align: center; font-size: 1rem; font-weight: 500; color: var(--text-main); font-style: italic; padding: 0 2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.05em; transition: opacity 0.5s ease-in-out; }}
+        .navbar-logo {{ width: 32px; height: 32px; }}
+        .top-navbar-menu {{ display: flex; gap: 1rem; align-items: center; }}
+        .nav-user {{ color: #3b82f6; font-weight: 500; }}
+        .nav-logout {{ color: #f85149; text-decoration: none; font-weight: 500; }}
+        .main-container {{ display: flex; flex: 1; }}
+        .content-area {{ flex: 1; padding: 30px; overflow-y: auto; }}
+        .page-header {{ margin-bottom: 24px; }}
+        .page-header h1 {{ font-size: 1.5rem; margin: 0 0 8px 0; color: var(--text-main); }}
+        .page-header p {{ font-size: 0.9rem; color: var(--text-dim); margin: 0; }}
+        .records-table {{ width: 100%; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }}
+        .records-table th, .records-table td {{ padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }}
+        .records-table th {{ background: rgba(59, 130, 246, 0.1); color: var(--text-dim); font-weight: 500; font-size: 13px; }}
+        .records-table tr:last-child td {{ border-bottom: none; }}
+        .records-table tr:hover td {{ background: rgba(255,255,255,0.02); }}
+        .record-op-add {{ color: #22c55e; font-weight: 500; }}
+        .record-op-reduce {{ color: #f59e0b; font-weight: 500; }}
+        .btn-undo {{ padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); cursor: pointer; }}
+        .btn-undo:hover {{ background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: #ef4444; }}
+        .records-empty {{ padding: 40px; text-align: center; color: var(--text-dim); }}
+        .sidebar {{ width: 200px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border); }}
+        .sidebar.collapsed {{ width: 60px; }}
+        .sidebar-item {{ display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: var(--text-main); text-decoration: none; border-bottom: 1px solid var(--border); }}
+        .sidebar-item:hover {{ background: rgba(59, 130, 246, 0.08); }}
+        .sidebar-item.active {{ background: rgba(59, 130, 246, 0.15); color: #3b82f6; }}
+        .hamburger-menu {{ display: none; }}
+        @media (max-width: 768px) {{
+            .sidebar {{ position: fixed; left: 0; top: 0; height: 100%; z-index: 1000; }}
+            .hamburger-menu {{ display: block; }}
+            .top-navbar {{ flex-direction: row; flex-wrap: wrap; height: auto; padding: 0.5rem 1rem; align-items: center; border-bottom: none; }}
+            .top-navbar > .top-navbar-brand {{ order: 1; flex: 0 0 auto; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }}
+            .top-navbar-menu {{ order: 1; flex: 0 0 auto; margin-left: auto; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }}
+            .top-navbar-quote {{ order: 2; width: 100%; flex-basis: 100%; text-align: center; padding: 0.5rem 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid var(--border); margin-top: 0.5rem; }}
+        }}
+    </style>
+</head>
+<body>
+    <nav class="top-navbar">
+        <div class="top-navbar-brand">
+            <a href="/portfolio" style="display:flex;align-items:center;color:inherit;text-decoration:none;">
+                <img src="/static/1.ico" alt="Logo" class="navbar-logo">
+            </a>
+        </div>
+        <div class="top-navbar-quote" id="lyricsDisplay">偶然与巧合, 舞动了蝶翼, 谁的心头风起 ————《如果我们不曾相遇》</div>
+        <div class="top-navbar-menu">{username_display}</div>
+    </nav>
+    <div class="main-container">
+        <button class="hamburger-menu" id="hamburgerMenu"><span></span><span></span><span></span></button>
+        <div class="sidebar collapsed" id="sidebar">
+            <div class="sidebar-toggle" id="sidebarToggle">▶</div>
+            {sidebar_menu_html}
+        </div>
+        <main class="content-area">
+            <div class="page-header">
+                <h1>📋 持仓记录</h1>
+                <p>每次加仓、减仓会在此记录；删除某条记录将撤销该次操作并恢复当时持仓。</p>
+            </div>
+            <div id="positionRecordsContainer">
+                <p class="records-empty" id="recordsLoading">加载中…</p>
+            </div>
+        </main>
+    </div>
+    <script src="/static/js/sidebar-nav.js"></script>
+    <script>
+    (function() {{
+        function formatDate(ymd) {{
+            if (!ymd) return '—';
+            var p = ymd.split('-');
+            if (p.length === 3) return p[0] + '-' + p[1] + '-' + p[2];
+            return ymd;
+        }}
+        function formatDateTime(iso) {{
+            if (!iso) return '—';
+            try {{
+                var d = new Date(iso);
+                return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+            }} catch(e) {{ return iso; }}
+        }}
+        function loadRecords() {{
+            var el = document.getElementById('positionRecordsContainer');
+            fetch('/api/fund/position-records')
+                .then(function(r) {{ return r.json(); }})
+                .then(function(data) {{
+                    if (!data.success || !data.records || !data.records.length) {{
+                        el.innerHTML = '<p class="records-empty">暂无持仓记录</p>';
+                        return;
+                    }}
+                    var rows = data.records.map(function(rec) {{
+                        var opText = rec.op === 'add' ? '加仓' : '减仓';
+                        var opClass = rec.op === 'add' ? 'record-op-add' : 'record-op-reduce';
+                        return '<tr data-id="' + rec.id + '">' +
+                            '<td>' + (rec.fund_code || '—') + '</td>' +
+                            '<td>' + (rec.fund_name || '—') + '</td>' +
+                            '<td>' + formatDateTime(rec.created_at) + '</td>' +
+                            '<td><span class="' + opClass + '">' + opText + '</span></td>' +
+                            '<td>¥' + (parseFloat(rec.amount) || 0).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}) + '</td>' +
+                            '<td><button type="button" class="btn-undo" data-id="' + rec.id + '">撤销</button></td>' +
+                            '</tr>';
+                    }}).join('');
+                    el.innerHTML = '<table class="records-table"><thead><tr><th>基金编号</th><th>基金名称</th><th>操作时间</th><th>操作方式</th><th>加减仓金额</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
+                    el.querySelectorAll('.btn-undo').forEach(function(btn) {{
+                        btn.addEventListener('click', function() {{
+                            var id = btn.getAttribute('data-id');
+                            if (!id || !confirm('确定撤销该次操作？将恢复该次操作前的持仓。')) return;
+                            fetch('/api/fund/position-records/' + id, {{ method: 'DELETE' }})
+                                .then(function(r) {{ return r.json(); }})
+                                .then(function(res) {{
+                                    if (res.success) {{
+                                        alert(res.message || '已撤销');
+                                        loadRecords();
+                                    }} else {{
+                                        alert(res.message || '撤销失败');
+                                    }}
+                                }})
+                                .catch(function(e) {{ alert('请求失败: ' + (e.message || e)); }});
+                        }});
+                    }});
+                }})
+                .catch(function(e) {{
+                    el.innerHTML = '<p class="records-empty">加载失败: ' + (e.message || e) + '</p>';
+                }});
+        }}
+        loadRecords();
+        // 顶部导航栏歌词轮播（与其他页面一致）
+        var lyrics = [
+            '总要有一首我的歌, 大声唱过, 再看天地辽阔 ————《一颗苹果》',
+            '苍狗又白云, 身旁有了你, 匆匆轮回又有何惧 ————《如果我们不曾相遇》',
+            '活着其实很好, 再吃一颗苹果 ————《一颗苹果》',
+            '偶然与巧合, 舞动了蝶翼, 谁的心头风起 ————《如果我们不曾相遇》'
+        ];
+        var currentLyricIndex = Math.floor(Math.random() * lyrics.length);
+        var lyricsEl = document.getElementById('lyricsDisplay');
+        if (lyricsEl) {{
+            lyricsEl.textContent = lyrics[currentLyricIndex];
+            setInterval(function() {{
+                lyricsEl.style.opacity = '0';
+                setTimeout(function() {{
+                    currentLyricIndex = (currentLyricIndex + 1) % lyrics.length;
+                    lyricsEl.textContent = lyrics[currentLyricIndex];
+                    lyricsEl.style.opacity = '1';
+                }}, 500);
+            }}, 10000);
+        }}
+    }})();
+    </script>
+</body>
+</html>'''
+    return html.format(css_style=css_style, username_display=username_display, sidebar_menu_html=sidebar_menu_html)
 
 
 def get_sectors_page_html(sectors_content, select_fund_content, fund_map, username=None, is_admin=False):
