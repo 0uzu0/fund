@@ -1,15 +1,16 @@
 # -*- coding: UTF-8 -*-
 """
-兼容入口：所有 HTML 生成逻辑已拆至 src.html 包。
-保留本文件仅用于兼容 from src.module_html import xxx。
+HTML 生成包：布局、基金页、各独立页面、资源（CSS/JS）。
+对外统一从此处导出，兼容 from src.module_html import xxx。
 """
-from src.html import (
+from src.html.layout import (
     get_top_navbar_html,
     get_sidebar_menu_items_html,
     get_legacy_sidebar_html,
     get_lyrics_script,
-    get_css_style,
-    get_javascript_code,
+)
+from src.html.assets import get_css_style, get_javascript_code
+from src.html.fund import (
     enhance_fund_tab_content,
     get_table_html,
     generate_holdings_cards_html,
@@ -23,6 +24,8 @@ from src.html import (
     generate_fund_row_html,
     generate_holdings_section_html,
     generate_watchlist_section_html,
+)
+from src.html.pages import (
     get_market_page_html,
     get_news_page_html,
     get_admin_users_page_html,

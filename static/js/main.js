@@ -1455,7 +1455,7 @@
             }
             if (amountInput) amountInput.value = '';
             if (timeText) timeText.textContent = '请选择时间';
-            const addConfirmBtn = document.getElementById('addPositionConfirmBtn');
+            const addConfirmBtn = modal.querySelector('#addPositionConfirmBtn') || document.getElementById('addPositionConfirmBtn');
             if (addConfirmBtn) addConfirmBtn.disabled = true;
             const feeRadios = document.querySelectorAll('input[name="addPositionFeeRate"]');
             if (feeRadios.length) feeRadios[0].checked = true;
@@ -1549,13 +1549,14 @@
         };
 
         window.confirmAddPositionTime = function() {
-            const timeText = document.getElementById('addPositionTimeText');
+            const modal = document.querySelector('#addPositionModal.active') || document.getElementById('addPositionModal');
+            const timeText = modal ? modal.querySelector('#addPositionTimeText') || document.getElementById('addPositionTimeText') : document.getElementById('addPositionTimeText');
             if (timeText && currentAddPositionTimeValue) {
                 const d = currentAddPositionTimeValue.date;
                 const parts = d.split('-');
                 const str = parts[1] + '月' + parts[2] + '日 ' + (currentAddPositionTimeValue.period === 'after15' ? '下午3点后' : '下午3点前');
                 timeText.textContent = str;
-                const addConfirmBtn = document.getElementById('addPositionConfirmBtn');
+                const addConfirmBtn = modal ? modal.querySelector('#addPositionConfirmBtn') || document.getElementById('addPositionConfirmBtn') : document.getElementById('addPositionConfirmBtn');
                 if (addConfirmBtn) addConfirmBtn.disabled = false;
             }
             window.closeAddPositionTimePicker();
@@ -1588,7 +1589,8 @@
 
         window.confirmAddPosition = async function() {
             if (!currentAddPositionFundCode) return;
-            const amountInput = document.getElementById('addPositionAmount');
+            const addModal = document.querySelector('#addPositionModal.active') || document.getElementById('addPositionModal');
+            const amountInput = addModal ? (addModal.querySelector('#addPositionAmount') || document.getElementById('addPositionAmount')) : document.getElementById('addPositionAmount');
             const amount = parseFloat(amountInput && amountInput.value) || 0;
             const hasTime = currentAddPositionTimeValue && currentAddPositionTimeValue.date;
             if (amount <= 0 || !hasTime) {
@@ -1662,7 +1664,7 @@
             if (unitsEl) unitsEl.textContent = units.toFixed(2);
             if (amountInput) amountInput.value = '';
             if (timeText) timeText.textContent = '请选择时间';
-            const reduceConfirmBtn = document.getElementById('reducePositionConfirmBtn');
+            const reduceConfirmBtn = modal.querySelector('#reducePositionConfirmBtn') || document.getElementById('reducePositionConfirmBtn');
             if (reduceConfirmBtn) reduceConfirmBtn.disabled = true;
             const feeRadios = document.querySelectorAll('input[name="reducePositionFeeRate"]');
             if (feeRadios.length) feeRadios[0].checked = true;
@@ -1721,7 +1723,8 @@
                 const parts = d.split('-');
                 const str = parts[1] + '月' + parts[2] + '日 ' + (currentReducePositionTimeValue.period === 'after15' ? '下午3点后' : '下午3点前');
                 timeText.textContent = str;
-                const reduceConfirmBtn = document.getElementById('reducePositionConfirmBtn');
+                const reduceModal = document.querySelector('#reducePositionModal.active') || document.getElementById('reducePositionModal');
+                const reduceConfirmBtn = reduceModal ? reduceModal.querySelector('#reducePositionConfirmBtn') || document.getElementById('reducePositionConfirmBtn') : document.getElementById('reducePositionConfirmBtn');
                 if (reduceConfirmBtn) reduceConfirmBtn.disabled = false;
             }
             window.closeReducePositionTimePicker();
@@ -1730,7 +1733,8 @@
         window.confirmReducePosition = async function() {
             const reduceCode = currentReducePositionFundCode;
             if (!reduceCode) return;
-            const amountInput = document.getElementById('reducePositionAmount');
+            const reduceModal = document.querySelector('#reducePositionModal.active') || document.getElementById('reducePositionModal');
+            const amountInput = reduceModal ? (reduceModal.querySelector('#reducePositionAmount') || document.getElementById('reducePositionAmount')) : document.getElementById('reducePositionAmount');
             const amount = parseFloat(amountInput && amountInput.value) || 0;
             const hasTime = currentReducePositionTimeValue && currentReducePositionTimeValue.date;
             if (amount <= 0 || !hasTime) {

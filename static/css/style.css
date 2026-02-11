@@ -91,6 +91,30 @@
     border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
+/* 导入/导出基金列表区域（与 fund-operations 风格一致） */
+.file-operations {
+    margin-bottom: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 15px;
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+}
+.file-operations .btn {
+    padding: 8px 16px;
+}
+.file-operations .file-operations-tip {
+    color: #f59e0b;
+    font-size: var(--font-size-base);
+    margin-left: 10px;
+}
+.file-operations .file-operations-tip span[role="img"] {
+    color: #f59e0b;
+}
+
 .operation-group {
     display: flex;
     flex-wrap: wrap;
@@ -280,6 +304,31 @@
             --font-size-3xl: 24px;
             --font-size-4xl: 28px;
             --font-size-5xl: 48px;
+            /* 与 module_html 内联样式统一（别名，避免重复定义） */
+            --terminal-bg: var(--gh-bg-primary);
+            --card-bg: var(--gh-bg-secondary);
+            --border: var(--gh-border-primary);
+            --accent: var(--gh-accent-fg);
+            --text-main: var(--gh-text-primary);
+            --text-dim: var(--gh-text-secondary);
+            --text-muted: var(--gh-text-tertiary);
+            --up: var(--up-color);
+            --down: var(--down-color);
+            /* Sidebar / layout */
+            --sidebar-width: 70px;
+            --sidebar-expanded-width: 180px;
+            --sidebar-bg: var(--gh-bg-tertiary);
+            --sidebar-border: var(--gh-border-primary);
+            --sidebar-icon-size: 20px;
+            --sidebar-icon-active: var(--gh-accent-fg);
+            --header-height: 60px;
+            --header-bg: var(--gh-bg-secondary);
+            --summary-bar-height: auto;
+            --summary-card-bg: var(--gh-bg-tertiary);
+            --section-spacing: 24px;
+            --row-bg: var(--gh-bg-tertiary);
+            --row-hover-bg: var(--gh-bg-secondary);
+            --row-border: var(--gh-border-primary);
         }
 
         * {
@@ -777,6 +826,14 @@
             transform: translateY(0);
         }
 
+        .btn[disabled] {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .btn:not([disabled]) {
+            cursor: pointer;
+        }
+
         .btn-primary {
             background: var(--gh-btn-primary-bg);
         }
@@ -823,6 +880,16 @@
 
         .btn-danger:hover {
             background-color: #ff7875;
+        }
+
+        .btn-secondary {
+            color: var(--gh-btn-secondary-text, #e6edf3);
+            background-color: var(--gh-btn-secondary-bg, #21262d);
+            border: 1px solid var(--gh-border-secondary, #21262d);
+        }
+        .btn-secondary:hover {
+            background-color: var(--gh-btn-secondary-hover-bg, #30363d);
+            border-color: var(--gh-border-secondary, #30363d);
         }
 
         #fundCodesInput {
@@ -908,6 +975,9 @@
             max-height: 80vh;
             overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+            pointer-events: auto;
         }
         .confirm-dialog-content { max-width: 400px; }
         .cumulative-correction-dialog { min-width: 320px; max-width: 90%; }
@@ -1075,28 +1145,7 @@
         }
 
 /* ==================== SIDEBAR NAVIGATION LAYOUT ==================== */
-
-/* Sidebar Navigation Variables */
-:root {
-    --sidebar-width: 70px;
-    --sidebar-expanded-width: 180px;
-    --sidebar-bg: var(--gh-bg-tertiary);
-    --sidebar-border: var(--gh-border-primary);
-    --sidebar-icon-size: 20px;
-    --sidebar-icon-active: var(--gh-accent-fg);
-
-    /* Header & Summary Variables */
-    --header-height: 60px;
-    --header-bg: var(--gh-bg-secondary);
-    --summary-bar-height: auto;
-    --summary-card-bg: var(--gh-bg-tertiary);
-
-    /* Content Section Variables */
-    --section-spacing: 24px;
-    --row-bg: var(--gh-bg-tertiary);
-    --row-hover-bg: var(--gh-bg-secondary);
-    --row-border: var(--gh-border-primary);
-}
+/* 变量已合并到顶部 :root */
 
 /* App Container with Sidebar */
 .app-container-sidebar {
@@ -1385,6 +1434,47 @@
         padding: 15px;
     }
 }
+
+/* ==================== Top Navbar（顶部导航，与 module_html 共用） ==================== */
+.top-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border, var(--gh-border-primary));
+    background: var(--card-bg, var(--gh-bg-secondary));
+    flex-wrap: nowrap;
+    gap: 12px;
+}
+.top-navbar-brand {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.top-navbar-brand .navbar-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    object-fit: contain;
+}
+.top-navbar-quote {
+    flex: 1;
+    text-align: center;
+    font-size: var(--font-size-md);
+    color: var(--text-dim, var(--gh-text-secondary));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 12px;
+}
+.top-navbar-menu {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.top-navbar-menu .nav-user { color: var(--accent, var(--gh-accent-fg)); }
+.top-navbar-menu .nav-logout { color: var(--gh-danger-fg); text-decoration: none; }
 
 /* Market Indices Charts Grid */
 .market-charts-grid {
@@ -2032,6 +2122,45 @@
 .fund-gain.positive { color: #ff4757; }
 .fund-gain.negative { color: #2ed573; }
 @media (max-width: 400px) { .showoff-card { width: calc(100vw - 40px); height: calc((100vw - 40px) * 667 / 375); } }
+
+/* ==================== Terminal / 资产看板与基金玻璃卡片（与 module_html 共用） ==================== */
+.terminal-dashboard {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 20px;
+    background: var(--card-bg);
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+}
+.stat-group label { color: var(--text-dim); font-size: var(--font-size-base); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.stat-group .big-num { font-family: var(--font-mono); font-size: var(--font-size-4xl); font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
+.stat-group .big-num.up { color: var(--up); }
+.stat-group .big-num.down { color: var(--down); }
+.stat-group .stat-change { font-size: var(--font-size-md); font-family: var(--font-mono); color: var(--text-dim); }
+.stat-group .stat-change.up { color: var(--up); }
+.stat-group .stat-change.down { color: var(--down); }
+.holdings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 20px; }
+.fund-glass-card { background: var(--card-bg); border: 1px solid var(--border); padding: 16px; border-radius: 10px; transition: all 0.2s ease; position: relative; }
+.fund-glass-card:hover { border-color: var(--accent); background: var(--gh-bg-tertiary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15); }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.card-title { font-weight: 600; font-size: var(--font-size-lg); color: var(--text-main); margin-bottom: 4px; }
+.card-code { color: var(--text-dim); font-family: var(--font-mono); font-size: var(--font-size-sm); }
+.card-code .tag { display: inline-block; background: rgba(102, 126, 234, 0.1); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: var(--font-size-xs); margin-left: 6px; }
+.card-badge { font-size: var(--font-size-2xl); line-height: 1; }
+.card-main-data { display: flex; align-items: baseline; gap: 10px; margin: 10px 0; }
+.est-pct { font-family: var(--font-mono); font-size: var(--font-size-3xl); font-weight: 700; }
+.est-pct.up { color: var(--up); }
+.est-pct.down { color: var(--down); }
+.card-details { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); padding-top: 12px; gap: 8px; }
+.detail-item { font-size: var(--font-size-sm); color: var(--text-dim); }
+.detail-item b { color: var(--text-main); font-family: var(--font-mono); display: block; font-size: var(--font-size-md); margin-top: 4px; }
+.detail-item b.up { color: var(--up); }
+.detail-item b.down { color: var(--down); }
+.shares-button { padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: var(--font-size-base); transition: all 0.2s; }
+.shares-button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+.shares-button:active { transform: translateY(0); }
 
 /* 统一字体大小工具类（与 :root 变量一致，便于 class 使用） */
 .text-xs { font-size: var(--font-size-xs); }

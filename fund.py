@@ -10,32 +10,20 @@ import threading
 import time
 
 import requests
-import urllib3
 from curl_cffi import requests as curl_requests
 from dotenv import load_dotenv
 from loguru import logger
 from tabulate import tabulate
 
 from src.ai_analyzer import AIAnalyzer
+from src.config import setup_urllib3_ssl
 from src.module_html import get_table_html
 
-# 加载环境变量
+# 加载环境变量与网络配置
 load_dotenv()
+setup_urllib3_ssl()
 
 sem = threading.Semaphore(5)
-
-urllib3.disable_warnings()
-urllib3.util.ssl_.DEFAULT_CIPHERS = ":".join(
-    [
-        "ECDHE+AESGCM",
-        "ECDHE+CHACHA20",
-        'ECDHE-RSA-AES128-SHA',
-        'ECDHE-RSA-AES256-SHA',
-        "RSA+AESGCM",
-        'AES128-SHA',
-        'AES256-SHA',
-    ]
-)
 tabulate.PRESERVE_WHITESPACE = True
 
 
