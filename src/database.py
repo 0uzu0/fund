@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from datetime import datetime, timedelta
 
 import bcrypt
 from loguru import logger
@@ -547,9 +548,31 @@ class Database:
             logger.error(f"Get position records failed: {e}")
             return []
 
+    def check_position_record_undo_deadline(self, record, now=None):
+        """判断该条加减仓记录是否仍可撤销。
+        规则：当日3点前操作须在当日15:00前撤销；当日3点后操作须在次日15:00前撤销。
+        返回 (can_undo: bool, message: str)。"""
+        if now is None:
+            now = datetime.now()
+        trade_date = record.get('trade_date') or ''
+        if not trade_date.strip():
+            return True, ''
+        try:
+            d = datetime.strptime(trade_date.strip(), '%Y-%m-%d')
+        except ValueError:
+            return False, '记录日期格式错误'
+        period = (record.get('period') or '').strip().lower()
+        if period == 'after15':
+            deadline = (d + timedelta(days=1)).replace(hour=15, minute=0, second=0, microsecond=0)
+        else:
+            deadline = d.replace(hour=15, minute=0, second=0, microsecond=0)
+        if now >= deadline:
+            return False, '已过撤销截止时间（当日15:00前操作须在当日15:00前撤销，当日15:00后操作须在次日15:00前撤销），无法撤销'
+        return True, ''
+
     def delete_position_record_and_restore(self, user_id, record_id):
         """删除一条持仓记录并撤销该次操作：将对应基金恢复为 prev_holding_units / prev_cost_per_unit。
-        返回 (success: bool, message: str)。"""
+        超过撤销截止时间则不允许撤销。返回 (success: bool, message: str)。"""
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -559,6 +582,10 @@ class Database:
                 conn.close()
                 return False, '记录不存在或无权操作'
             rec = dict(row)
+            can_undo, msg = self.check_position_record_undo_deadline(rec)
+            if not can_undo:
+                conn.close()
+                return False, msg
             fund_code = rec['fund_code']
             prev_units = float(rec['prev_holding_units'])
             prev_cost = float(rec['prev_cost_per_unit'])

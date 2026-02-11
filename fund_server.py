@@ -612,10 +612,13 @@ def api_fund_data():
 @app.route('/api/fund/position-records', methods=['GET'])
 @login_required
 def api_fund_position_records():
-    """获取当前用户的持仓记录列表（加减仓记录）"""
+    """获取当前用户的持仓记录列表（加减仓记录）；每条记录附带 can_undo（是否仍可撤销）。"""
     try:
         user_id = get_current_user_id()
         records = db.get_position_records(user_id)
+        for rec in records:
+            can_undo, _ = db.check_position_record_undo_deadline(rec)
+            rec['can_undo'] = can_undo
         return jsonify({'success': True, 'records': records})
     except Exception as e:
         logger.error(f"获取持仓记录失败: {e}")

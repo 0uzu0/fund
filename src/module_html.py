@@ -6749,6 +6749,7 @@ def get_position_records_page_html(username=None, is_admin=False):
         .record-op-reduce {{ color: #f59e0b; font-weight: 500; }}
         .btn-undo {{ padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); cursor: pointer; }}
         .btn-undo:hover {{ background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: #ef4444; }}
+        .btn-undo-disabled {{ padding: 6px 12px; font-size: 12px; border-radius: 6px; color: var(--text-dim); cursor: not-allowed; }}
         .records-empty {{ padding: 40px; text-align: center; color: var(--text-dim); }}
         .sidebar {{ width: 200px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border); }}
         .sidebar.collapsed {{ width: 60px; }}
@@ -6785,7 +6786,7 @@ def get_position_records_page_html(username=None, is_admin=False):
         <main class="content-area">
             <div class="page-header">
                 <h1>📋 持仓记录</h1>
-                <p>每次加仓、减仓会在此记录；删除某条记录将撤销该次操作并恢复当时持仓。</p>
+                <p>每次加仓、减仓会在此记录；删除某条记录将撤销该次操作并恢复当时持仓。当日15:00前操作须在当日15:00前撤销，当日15:00后操作须在次日15:00前撤销；到账规则：当日15:00前操作次日到账(T+1)，当日15:00后操作第三天到账(T+2)。</p>
             </div>
             <div id="positionRecordsContainer">
                 <p class="records-empty" id="recordsLoading">加载中…</p>
@@ -6820,13 +6821,17 @@ def get_position_records_page_html(username=None, is_admin=False):
                     var rows = data.records.map(function(rec) {{
                         var opText = rec.op === 'add' ? '加仓' : '减仓';
                         var opClass = rec.op === 'add' ? 'record-op-add' : 'record-op-reduce';
+                        var canUndo = rec.hasOwnProperty('can_undo') ? rec.can_undo : true;
+                        var actionCell = canUndo
+                            ? '<button type="button" class="btn-undo" data-id="' + rec.id + '">撤销</button>'
+                            : '<span class="btn-undo-disabled" title="已过撤销截止时间（当日15:00前操作须在当日15:00前撤销，当日15:00后操作须在次日15:00前撤销）">已过截止</span>';
                         return '<tr data-id="' + rec.id + '">' +
                             '<td>' + (rec.fund_code || '—') + '</td>' +
                             '<td>' + (rec.fund_name || '—') + '</td>' +
                             '<td>' + formatDateTime(rec.created_at) + '</td>' +
                             '<td><span class="' + opClass + '">' + opText + '</span></td>' +
                             '<td>¥' + (parseFloat(rec.amount) || 0).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}) + '</td>' +
-                            '<td><button type="button" class="btn-undo" data-id="' + rec.id + '">撤销</button></td>' +
+                            '<td>' + actionCell + '</td>' +
                             '</tr>';
                     }}).join('');
                     el.innerHTML = '<table class="records-table"><thead><tr><th>基金编号</th><th>基金名称</th><th>操作时间</th><th>操作方式</th><th>加减仓金额</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
