@@ -3593,21 +3593,23 @@ def get_javascript_code():
                 }
             }
 
-            // 更新累计收益（显示值 = 现有累计收益 - 修正金额）
+            // 持仓统计·累计收益：明细合计 - 修正金额，修正计算后赋值存储，所有展示共用此值
             const totalCumulativeReturn = fundDetailsData.reduce((sum, f) => sum + (f.cumulativeReturn || 0), 0);
-            const correction = parseFloat(localStorage.getItem('lan_fund_cumulative_correction') || '0') || 0;
-            const displayedCumulative = totalCumulativeReturn - correction;
+            const cumulativeCorrection = parseFloat(localStorage.getItem('lan_fund_cumulative_correction') || '0') || 0;
+            const positionSummaryCumulativeReturn = totalCumulativeReturn - cumulativeCorrection;
+            window.positionSummaryCumulativeReturn = positionSummaryCumulativeReturn;
+
             const cumulativeGainEl = document.getElementById('cumulativeGain');
             if (cumulativeGainEl) {{
                 const sensSpan = cumulativeGainEl.querySelector('.sensitive-value');
-                if (sensSpan) sensSpan.className = displayedCumulative >= 0 ? 'sensitive-value positive' : 'sensitive-value negative';
+                if (sensSpan) sensSpan.className = positionSummaryCumulativeReturn >= 0 ? 'sensitive-value positive' : 'sensitive-value negative';
                 const realSpan = cumulativeGainEl.querySelector('.real-value');
-                if (realSpan) realSpan.textContent = (displayedCumulative >= 0 ? '+' : '-') + '¥' + Math.abs(displayedCumulative).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
+                if (realSpan) realSpan.textContent = (positionSummaryCumulativeReturn >= 0 ? '+' : '-') + '¥' + Math.abs(positionSummaryCumulativeReturn).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
             }}
             const summaryCumulativeGain = document.getElementById('summaryCumulativeGain');
             if (summaryCumulativeGain) {{
-                summaryCumulativeGain.textContent = (displayedCumulative >= 0 ? '+' : '-') + '¥' + Math.abs(displayedCumulative).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
-                summaryCumulativeGain.className = 'summary-value ' + (displayedCumulative > 0 ? 'positive' : (displayedCumulative < 0 ? 'negative' : ''));
+                summaryCumulativeGain.textContent = (positionSummaryCumulativeReturn >= 0 ? '+' : '-') + '¥' + Math.abs(positionSummaryCumulativeReturn).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
+                summaryCumulativeGain.className = 'summary-value ' + (positionSummaryCumulativeReturn > 0 ? 'positive' : (positionSummaryCumulativeReturn < 0 ? 'negative' : ''));
             }}
 
             // 填充分基金明细表格
