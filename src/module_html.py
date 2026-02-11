@@ -88,7 +88,7 @@ def enhance_fund_tab_content(content, shares_map=None):
         </div>
 
         <div id="fundDetailsSummary" class="fund-details-summary" style="display: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: var(--text-main);">📊 分基金涨跌明细</h3>
+            <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: var(--text-main);">📊 持有基金</h3>
             <div style="overflow-x: auto;">
                 <table id="fundDetailsTable" style="width: 100%; min-width: 700px; border-collapse: collapse; font-size: 13px; table-layout: auto; white-space: nowrap;">
                     <thead>
@@ -232,7 +232,16 @@ def enhance_fund_tab_content(content, shares_map=None):
     # 匹配完整的表格行（非贪婪匹配行内容）
     content = re.sub(r'<tr>.*?</tr>', add_shares_to_row, content, flags=re.DOTALL)
 
-    return file_operations + position_summary + operations_panel + add_fund_area + content
+    # 所有基金表格外加「自选基金」标题（与「持有基金」分基金涨跌明细样式一致）
+    fund_list_section = '''
+        <div class="fund-list-section" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: var(--text-main);">📊 自选基金</h3>
+            <div style="overflow-x: auto;">
+''' + content + '''
+            </div>
+        </div>
+'''
+    return file_operations + position_summary + operations_panel + add_fund_area + fund_list_section
 
 
 def get_top_navbar_html(username=None):

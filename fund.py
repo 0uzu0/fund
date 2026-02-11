@@ -802,7 +802,7 @@ class LanFund:
 
                 # 显示每个基金的详细涨跌（表格格式）
                 if 'fund_details' in position_summary and position_summary['fund_details']:
-                    logger.critical(f"{time.strftime('%Y-%m-%d %H:%M')} 分基金涨跌明细:")
+                    logger.critical(f"{time.strftime('%Y-%m-%d %H:%M')} 持有基金:")
 
                     # 准备表格数据（持仓金额=净值×持有份额，累计收益=(净值-持仓成本)×持有份额）
                     table_data = []
