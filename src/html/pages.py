@@ -2637,6 +2637,20 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
     <script src="/static/js/main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {{
+            // 导入基金列表：若 main.js 未挂载则在此提供回退，确保持仓页导入可用
+            if (typeof window.uploadFundMap !== 'function') {{
+                window.uploadFundMap = async function(file) {{
+                    if (!file) {{ alert('请选择文件'); return; }}
+                    if (!file.name.endsWith('.json')) {{ alert('只支持JSON文件'); return; }}
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {{
+                        const response = await fetch('/api/fund/upload', {{ method: 'POST', body: formData }});
+                        const result = await response.json();
+                        if (result.success) {{ alert(result.message); location.reload(); }} else {{ alert(result.message); }}
+                    }} catch (e) {{ alert('上传失败: ' + e.message); }}
+                }};
+            }}
             // 自动颜色化
             const cells = document.querySelectorAll('.style-table td');
             cells.forEach(cell => {{
@@ -2694,6 +2708,25 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
             initFundChartSelector();
             initFundChart();
         }});
+
+        // 持仓页：表格更新前先拉取份额数据，保证「持有基金」与持仓统计能正确显示
+        async function ensureFundDataLoaded() {{
+            if (window.fundSharesData !== undefined) return;
+            try {{
+                const r = await fetch('/api/fund/data');
+                if (!r.ok) return;
+                const fundData = await r.json();
+                window.fundSharesData = {{}};
+                window.fundHoldingData = {{}};
+                window.fundSectorsData = {{}};
+                for (const [code, data] of Object.entries(fundData)) {{
+                    if (data.shares != null) window.fundSharesData[code] = parseFloat(data.shares) || 0;
+                    if (data.holding_units != null && data.cost_per_unit != null) window.fundHoldingData[code] = {{ holding_units: parseFloat(data.holding_units) || 0, cost_per_unit: parseFloat(data.cost_per_unit) || 1 }};
+                    else if (window.fundSharesData[code] != null) window.fundHoldingData[code] = {{ holding_units: window.fundSharesData[code], cost_per_unit: 1 }};
+                    if (data.sectors && data.sectors.length) window.fundSectorsData[code] = data.sectors;
+                }}
+            }} catch (e) {{}}
+        }}
 
         // 基金估值趋势数据和选择器
         let fundChartData = {fund_chart_data_json};
@@ -3079,8 +3112,9 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 const gid = tab.replace('group-', '');
                 const requestedTab = tab;
                 if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:24px;">加载中...</td></tr>';
-                fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(async function(resp) {{
                     if (portfolioCurrentTab !== requestedTab) return;
+                    await ensureFundDataLoaded();
                     const t = portfolioTbody();
                     if (t) {{
                         if (resp.success && resp.html !== undefined && resp.html !== null) {{
@@ -3091,13 +3125,14 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                             portfolioRowCountByTab[requestedTab] = 0;
                         }}
                     }}
-                    requestAnimationFrame(function() {{ portfolioRender(); }});
-                }}).catch(function() {{
+                    requestAnimationFrame(function() {{ portfolioRender(); if (window.calculatePositionSummary) window.calculatePositionSummary(); }});
+                }}).catch(async function() {{
                     if (portfolioCurrentTab !== requestedTab) return;
+                    await ensureFundDataLoaded();
                     const t = portfolioTbody();
                     if (t) t.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:24px;">加载失败</td></tr>';
                     portfolioRowCountByTab[requestedTab] = 0;
-                    requestAnimationFrame(function() {{ portfolioRender(); }});
+                    requestAnimationFrame(function() {{ portfolioRender(); if (window.calculatePositionSummary) window.calculatePositionSummary(); }});
                 }});
             }} else {{
                 portfolioRender();
@@ -3113,14 +3148,15 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 const res = await fetch('/api/fund/groups/' + gid + '/funds/' + encodeURIComponent(code), {{ method: 'DELETE' }});
                 const data = await res.json();
                 if (data.success) {{
-                    fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                    fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(async function(resp) {{
+                        await ensureFundDataLoaded();
                         const t = document.querySelector('#portfolioTableWrap .table-container tbody');
                         if (t && resp.success && resp.html != null) {{
                             t.innerHTML = resp.html;
                             if (typeof resp.total === 'number') portfolioRowCountByTab[portfolioCurrentTab] = resp.total;
                         }}
-                        requestAnimationFrame(function() {{ portfolioRender(); }});
-                    }}).catch(function() {{ requestAnimationFrame(function() {{ portfolioRender(); }}); }});
+                        requestAnimationFrame(function() {{ portfolioRender(); if (window.calculatePositionSummary) window.calculatePositionSummary(); }});
+                    }}).catch(async function() {{ await ensureFundDataLoaded(); requestAnimationFrame(function() {{ portfolioRender(); if (window.calculatePositionSummary) window.calculatePositionSummary(); }}); }});
                 }} else alert(data.message || '移除失败');
             }} catch (e) {{ alert('移除失败: ' + e.message); }}
         }}
@@ -3225,14 +3261,15 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 }}
                 input.value = '';
                 if (anySuccess) {{
-                    fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                    fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(async function(resp) {{
+                        await ensureFundDataLoaded();
                         const t = document.querySelector('#portfolioTableWrap .table-container tbody');
                         if (t && resp.success && resp.html != null) {{
                             t.innerHTML = resp.html;
                             if (typeof resp.total === 'number') portfolioRowCountByTab[portfolioCurrentTab] = resp.total;
                         }}
-                        requestAnimationFrame(function() {{ portfolioRender(); }});
-                    }}).catch(function() {{ requestAnimationFrame(function() {{ portfolioRender(); }}); }});
+                        requestAnimationFrame(function() {{ portfolioRender(); if (window.calculatePositionSummary) window.calculatePositionSummary(); }});
+                    }}).catch(async function() {{ await ensureFundDataLoaded(); requestAnimationFrame(function() {{ portfolioRender(); if (window.calculatePositionSummary) window.calculatePositionSummary(); }}); }});
                 }}
                 return;
             }}

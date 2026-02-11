@@ -148,6 +148,11 @@ def api_fund_upload():
         success = db.save_user_funds(user_id, fund_map)
 
         if success:
+            # 导入后同步默认分组的 fund_codes，否则持仓页默认 tab 仍按旧列表显示导致“导入后不显示”
+            default_group = db.get_or_create_default_group(user_id)
+            if default_group:
+                imported_codes = list(fund_map.keys())
+                db.update_fund_group(user_id, default_group['id'], fund_codes=imported_codes)
             return jsonify({'success': True, 'message': f'成功导入{len(fund_map)}个基金'})
         return jsonify({'success': False, 'message': '保存失败'})
 

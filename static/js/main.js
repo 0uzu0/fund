@@ -5,6 +5,38 @@
         }
     };
 
+    // 导入/导出在脚本加载时即挂到 window，避免持仓页依赖 DOMContentLoaded 完成
+    window.downloadFundMap = function() {
+        window.location.href = '/api/fund/download';
+    };
+    window.uploadFundMap = async function(file) {
+        if (!file) {
+            alert('请选择文件');
+            return;
+        }
+        if (!file.name.endsWith('.json')) {
+            alert('只支持JSON文件');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const response = await fetch('/api/fund/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert(result.message);
+            }
+        } catch (e) {
+            alert('上传失败: ' + e.message);
+        }
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize Auto Colorize
         autoColorize();
@@ -648,42 +680,7 @@
             }
         };
 
-        // 下载fund_map.json
-        window.downloadFundMap = function() {
-            window.location.href = '/api/fund/download';
-        };
-
-        // 上传fund_map.json
-        window.uploadFundMap = async function(file) {
-            if (!file) {
-                alert('请选择文件');
-                return;
-            }
-
-            if (!file.name.endsWith('.json')) {
-                alert('只支持JSON文件');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/api/fund/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                if (result.success) {
-                    alert(result.message);
-                    location.reload();
-                } else {
-                    alert(result.message);
-                }
-            } catch (e) {
-                alert('上传失败: ' + e.message);
-            }
-        };
+        // 下载/上传已在脚本顶部挂到 window，此处不再重复
 
         // 获取北京时间（从互联网/服务器），用于 0 点后 9:30 前清零预估/今日涨幅及统一当前时间
         const BEIJING_TIME_CACHE_MS = 60 * 1000;
@@ -858,15 +855,13 @@
             // 保存基金明细数据到全局变量，供炫耀卡片使用
             window.fundDetailsData = fundDetailsData;
 
-            // 显示或隐藏持仓统计区域 (旧版布局)
+            // 显示持仓统计区域：有数据时展示数值，无数据时也显示区块（避免持仓页“模块丢失”）
             const summaryDiv = document.getElementById('positionSummary');
-            if (summaryDiv && totalValue > 0) {
+            if (summaryDiv) {
                 summaryDiv.style.display = 'block';
-            } else if (summaryDiv) {
-                summaryDiv.style.display = 'none';
             }
 
-            // 更新持仓基金页面的汇总数据 (始终执行)
+            // 更新持仓基金区块的汇总数据 (始终执行)
             // 更新总持仓金额
             const totalValueEl = document.getElementById('totalValue');
             if (totalValueEl) {
@@ -965,13 +960,14 @@
                 holdCountEl.textContent = heldCount + ' 只';
             }
 
-            // 填充分基金明细表格
+            // 填充分基金明细表格（持有基金模块：有数据填表，无数据也显示区块并展示“暂无持仓”）
             const fundDetailsDiv = document.getElementById('fundDetailsSummary');
-            if (fundDetailsDiv && fundDetailsData.length > 0) {
+            if (fundDetailsDiv) {
                 fundDetailsDiv.style.display = 'block';
                 const tableBody = document.getElementById('fundDetailsTableBody');
                 if (tableBody) {
-                    tableBody.innerHTML = fundDetailsData.map(fund => {
+                    if (fundDetailsData.length > 0) {
+                        tableBody.innerHTML = fundDetailsData.map(fund => {
                         const estColor = fund.estimatedGain >= 0 ? '#f44336' : '#4caf50';
                         const actColor = fund.actualGain >= 0 ? '#f44336' : '#4caf50';
                         const cumColor = (fund.cumulativeReturn || 0) >= 0 ? '#f44336' : '#4caf50';
@@ -996,9 +992,10 @@
                             </tr>
                         `;
                     }).join('');
+                    } else {
+                        tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-dim);padding:24px;">暂无持仓</td></tr>';
+                    }
                 }
-            } else if (fundDetailsDiv) {
-                fundDetailsDiv.style.display = 'none';
             }
 
             // Update new summary bar if it exists (sidebar layout)
@@ -1267,12 +1264,12 @@
             }
         };
 
-        // 全局暴露其他必要的函数
+        // 全局暴露其他必要的函数（持仓页表格异步加载后需调用 calculatePositionSummary 刷新持仓统计/持有基金表）
+        window.calculatePositionSummary = calculatePositionSummary;
         window.openFundSelectionModal = openFundSelectionModal;
         window.closeFundSelectionModal = closeFundSelectionModal;
         window.confirmFundSelection = confirmFundSelection;
-        window.downloadFundMap = downloadFundMap;
-        window.uploadFundMap = uploadFundMap;
+        // downloadFundMap / uploadFundMap 已在脚本顶部挂到 window
         window.addFunds = addFunds;
         window.deleteFunds = deleteFunds;
         window.openSectorModal = openSectorModal;
