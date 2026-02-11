@@ -685,14 +685,48 @@
             }
         };
 
+        // 获取北京时间（从互联网/服务器），用于 0 点后 9:30 前清零预估/今日涨幅及统一当前时间
+        const BEIJING_TIME_CACHE_MS = 60 * 1000;
+        async function fetchBeijingTime() {
+            if (window._beijingTimeCache && (Date.now() - window._beijingTimeCacheAt < BEIJING_TIME_CACHE_MS)) {
+                return window._beijingTimeCache;
+            }
+            try {
+                const r = await fetch('/api/time/beijing');
+                const data = await r.json();
+                window.beijingTimeInfo = {
+                    date: data.date,
+                    time: data.time,
+                    datetime: data.datetime,
+                    hour: data.hour,
+                    minute: data.minute,
+                    is_before_930: !!data.is_before_930
+                };
+                window._beijingTimeCache = window.beijingTimeInfo;
+                window._beijingTimeCacheAt = Date.now();
+                return window.beijingTimeInfo;
+            } catch (e) {
+                if (window.beijingTimeInfo) return window.beijingTimeInfo;
+                const fallback = new Date();
+                const dateStr = fallback.getFullYear() + '-' + String(fallback.getMonth() + 1).padStart(2, '0') + '-' + String(fallback.getDate()).padStart(2, '0');
+                const timeStr = String(fallback.getHours()).padStart(2, '0') + ':' + String(fallback.getMinutes()).padStart(2, '0') + ':' + String(fallback.getSeconds()).padStart(2, '0');
+                const h = fallback.getHours(), m = fallback.getMinutes();
+                window.beijingTimeInfo = { date: dateStr, time: timeStr, datetime: dateStr + 'T' + timeStr, hour: h, minute: m, is_before_930: h < 9 || (h === 9 && m < 30) };
+                return window.beijingTimeInfo;
+            }
+        }
+
         // 计算并显示持仓统计
         // 分基金涨跌明细：持仓金额 = 累计收益 + 持仓成本×持仓份额（累计收益=(净值-持仓成本)×持有份额）；加减仓通过更新「持仓金额-修改」后调用本函数刷新明细。
+        // 当天 0 点后、9:30 前（北京时间）：清零预估收益/预估涨跌与基金列表今日涨幅；当前时间以互联网北京时间为准。
         function calculatePositionSummary() {
             let totalValue = 0;
             let estimatedGain = 0;
             let actualGain = 0;
             let settledValue = 0;
-            const today = new Date().toISOString().split('T')[0];
+            const beijing = window.beijingTimeInfo || {};
+            const today = beijing.date || new Date().toISOString().split('T')[0];
+            const isBefore930 = !!beijing.is_before_930;
 
             // 存储每个基金的详细涨跌信息
             const fundDetailsData = [];
@@ -702,6 +736,14 @@
             fundRows.forEach(row => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length < 6) return;
+
+                // 当前时间列（索引2）与北京时间绑定；当天 9:30 前仅清零今日涨幅（列4），昨日涨幅（列5）保持原逻辑
+                if (beijing.date && beijing.time && cells[2]) {
+                    cells[2].textContent = beijing.date + ' ' + beijing.time;
+                }
+                if (isBefore930 && cells[4]) {
+                    cells[4].textContent = '0.00%';
+                }
 
                 // 获取基金代码（第一列）
                 const codeCell = cells[0];
@@ -726,16 +768,16 @@
                     // 处理净值日期格式：API可能返回"MM-DD"或"YYYY-MM-DD"
                     // 如果是"MM-DD"格式，添加当前年份
                     if (netValueDate.length === 5) {  // 格式为"MM-DD"
-                        const currentYear = new Date().getFullYear();
+                        const currentYear = (beijing.date && beijing.date.split('-')[0]) || new Date().getFullYear();
                         netValueDate = `${currentYear}-${netValueDate}`;
                     }
 
-                    // 解析估值增长率 (第五列，索引4)
-                    const estimatedGrowthText = cells[4].textContent.trim();
+                    // 解析估值增长率/今日涨幅 (第五列，索引4)；当天 9:30 前清零
+                    const estimatedGrowthText = isBefore930 ? 'N/A' : cells[4].textContent.trim();
                     const estimatedGrowth = estimatedGrowthText !== 'N/A' ?
                         parseFloat(estimatedGrowthText.replace('%', '')) : 0;
 
-                    // 解析日涨幅 (第六列，索引5)
+                    // 解析昨日涨幅 (第六列，索引5)；恢复原逻辑，始终使用接口返回值
                     const dayGrowthText = cells[5].textContent.trim();
                     const dayGrowth = dayGrowthText !== 'N/A' ?
                         parseFloat(dayGrowthText.replace('%', '')) : 0;
@@ -752,8 +794,8 @@
                     const cumulativeReturn = (netValue - cost_per_unit) * holding_units;
                     const positionAmount = cumulativeReturn + cost_per_unit * holding_units;  // = 净值×持有份额，与公式一致
 
-                    // 计算预估涨跌、实际涨跌（均基于同一持仓金额）
-                    const fundEstimatedGain = positionAmount * estimatedGrowth / 100;
+                    // 计算预估涨跌、实际涨跌（均基于同一持仓金额）；当天 9:30 前预估清零
+                    const fundEstimatedGain = isBefore930 ? 0 : (positionAmount * estimatedGrowth / 100);
                     estimatedGain += fundEstimatedGain;
                     let fundActualGain = 0;
                     if (netValueDate === today) {
@@ -1071,12 +1113,16 @@
 
                     console.log('已加载份额数据:', window.fundSharesData);
 
-                    // 计算持仓统计
+                    // 先获取北京时间（与互联网时间绑定），再计算持仓统计（0 点后 9:30 前会清零预估/今日涨幅）
+                    await fetchBeijingTime();
+                    calculatePositionSummary();
+                } else {
+                    await fetchBeijingTime().catch(function() {});
                     calculatePositionSummary();
                 }
             } catch (e) {
                 console.error('加载份额数据失败:', e);
-                // 即使加载失败，也尝试计算持仓统计
+                await fetchBeijingTime().catch(function() {});
                 calculatePositionSummary();
             }
         }
