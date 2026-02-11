@@ -6,13 +6,23 @@ from src.html.assets import get_css_style, get_javascript_code
 
 
 
-def enhance_fund_tab_content(content, shares_map=None):
+def enhance_fund_tab_content(content, shares_map=None, groups=None, use_empty_table=False):
     """
     Enhance the fund tab content with operations panel, file operations, and shares input.
     Args:
         content: HTML content to enhance
         shares_map: Dict mapping fund_code -> shares value (optional)
+        groups: List of {id, name, fund_codes} for portfolio tab bar and row data-groups (optional)
+        use_empty_table: 若 True 且 groups 不为 None，表格仅渲染表头+空 tbody，由前端按分组请求数据
     """
+    code_to_group_ids = {}
+    if groups:
+        for g in groups:
+            gid = g.get('id')
+            codes = g.get('fund_codes') or []
+            if gid is not None:
+                for code in codes:
+                    code_to_group_ids.setdefault(str(code), []).append(gid)
     # 添加文件操作和持仓统计区域（样式与 fund-operations 一致，由 style.css 统一）
     file_operations = """
         <div class="file-operations">
@@ -226,9 +236,9 @@ def enhance_fund_tab_content(content, shares_map=None):
         </div>
     """
 
-    # 在"近30天"列后添加"持仓金额"列
+    # 在"近30天"列后添加"持仓金额"列（默认 tab 显示，分组 tab 隐藏）
     content = re.sub(r'(<th[^>]*>近30天</th>)',
-                   r'\1\n                    <th>持仓金额</th>',
+                   r'\1\n                    <th class="portfolio-position-col">持仓金额</th>',
                    content, count=1)
 
     # 在每个数据行添加份额输入框
@@ -256,21 +266,38 @@ def enhance_fund_tab_content(content, shares_map=None):
                 button_text = '设置'
                 button_color = '#3b82f6'  # 蓝色
 
-            # 在行末添加份额设置按钮（在</tr>之前）- 去掉最后的</tr>，添加按钮后再加回；用 data-fund-code 便于事件委托
-            row_with_shares = row_content[:-5] + f'''<td>
+            # 在行末添加份额设置按钮（在</tr>之前）- 去掉最后的</tr>，添加按钮后再加回；用 data-fund-code 便于事件委托；持仓金额列在分组 tab 隐藏
+            row_with_shares = row_content[:-5] + f'''<td class="portfolio-position-col">
                 <button type="button" class="shares-button" id="sharesBtn_{fund_code}" data-fund-code="{fund_code}"
                         style="padding: 6px 12px; background: {button_color}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: var(--font-size-base); transition: all 0.2s;">
                     {button_text}
                 </button>
             </td></tr>'''
+            # 为 tab 切换与分页添加 data 属性（持有/自选/分组）
+            group_ids = code_to_group_ids.get(fund_code, [])
+            data_attrs = ' data-code="%s" data-holding="%s" data-watchlist="%s" data-groups="%s"' % (
+                fund_code,
+                '1' if shares > 0 else '',
+                '1' if shares <= 0 else '',
+                ','.join(str(x) for x in group_ids),
+            )
+            row_with_shares = re.sub(r'<tr\b', '<tr' + data_attrs, row_with_shares, count=1)
+            # 分组下增加「移除」列，仅保留移除按钮，样式与总体一致
+            if groups is not None:
+                code_esc = fund_code.replace('\\', '\\\\').replace("'", "\\'").replace('"', '&quot;')
+                row_with_shares = row_with_shares.replace(
+                    '</tr>',
+                    '<td class="portfolio-op-cell portfolio-op-col"><button type="button" class="btn btn-secondary btn-remove-from-group" data-code="' + fund_code + '" onclick="(typeof portfolioRemoveFundFromGroup===\'function\'&&portfolioRemoveFundFromGroup(\'' + code_esc + '\'));return false;" style="padding:4px 10px;font-size:0.85rem;">移除</button></td></tr>'
+                )
             return row_with_shares
         return row_content
 
     # 匹配完整的表格行（非贪婪匹配行内容）
     content = re.sub(r'<tr>.*?</tr>', add_shares_to_row, content, flags=re.DOTALL)
 
-    # 所有基金表格外加「自选基金」标题（与「持有基金」分基金涨跌明细样式一致）
-    fund_list_section = '''
+    if groups is None:
+        # 非持仓页（未传 groups）：仅「自选基金」标题，无 tab
+        fund_list_section = '''
         <div class="fund-list-section" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
             <h3 style="margin: 0 0 15px 0; font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);">📊 自选基金</h3>
             <div style="overflow-x: auto;">
@@ -278,8 +305,118 @@ def enhance_fund_tab_content(content, shares_map=None):
             </div>
         </div>
 '''
-    return file_operations + position_summary + operations_panel + add_fund_area + fund_list_section
+        return file_operations + position_summary + operations_panel + add_fund_area + fund_list_section
 
+    # 持仓页：默认与新建分组在同一主页面切换，不跳转；tab 切换仅过滤表格数据
+    tabs_html = ''
+    for i, g in enumerate(groups):
+        gid = g.get('id')
+        name = (g.get('name') or '未命名').replace('<', '&lt;').replace('>', '&gt;')
+        if gid is None:
+            continue
+        active = ' active' if i == 0 else ''
+        cls = 'portfolio-tab portfolio-tab-group' if i > 0 else 'portfolio-tab'
+        default_attr = ' data-default="1"' if i == 0 else ''
+        tabs_html += f'<button type="button" class="{cls}{active}" data-tab="group-{gid}"{default_attr}>{name}</button>\n'
+    tabs_html += '<button type="button" class="portfolio-tab portfolio-tab-new" id="portfolioBtnNewGroup">+ 新建分组</button>'
+
+    # 输入基金代码新增：放在 tab 下；联想数据来自默认页所有基金；分组 tab 时在添加按钮后显示「删除分组」
+    add_fund_in_tab = '''
+            <div class="portfolio-add-fund-row add-fund-input" style="display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div class="portfolio-add-fund-suggest-wrap" style="position: relative; flex: 1; min-width: 200px;">
+                    <input type="text" id="fundCodesInput" placeholder="输入基金代码或名称（支持联想）" class="sector-modal-search" autocomplete="off" style="width: 100%; height: 36px; box-sizing: border-box;">
+                    <div id="portfolioFundSuggestList" class="portfolio-fund-suggest-list" style="display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 100; max-height: 240px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px;"></div>
+                </div>
+                <button type="button" class="btn btn-primary" id="portfolioAddByInputBtn" style="height: 36px; box-sizing: border-box;">添加</button>
+                <span id="portfolioGroupActionsWrap" style="display: none;"><button type="button" class="btn btn-secondary" id="portfolioDeleteGroupBtn" style="height: 36px; box-sizing: border-box; color: #f85149;">删除分组</button></span>
+            </div>
+'''
+
+    # content 为 get_table_html 输出：<div class="table-container"><table>...</table></div>，抽出 thead+tbody+</table>
+    if use_empty_table and groups is not None:
+        # 持仓页按分组请求数据：首屏只渲染表头+空 tbody，避免所有分组共享同一份初始数据
+        empty_content = get_table_html(
+            ["基金代码", "基金名称", "当前时间", "净值", "今日涨幅", "昨日涨幅", "连涨/跌", "近30天"],
+            [],
+            sortable_columns=[4, 5, 6, 7]
+        )
+        empty_content = re.sub(r'(<th[^>]*>近30天</th>)', r'\1\n                    <th class="portfolio-position-col">持仓金额</th>', empty_content, count=1)
+        table_inner = re.sub(r'^<div class="table-container">\s*<table class="style-table">\s*', '', empty_content, flags=re.DOTALL)
+        table_inner = re.sub(r'\s*</table>\s*</div>\s*$', '\n    </table>', table_inner, flags=re.DOTALL)
+        table_inner = re.sub(r'(</tr>\s*</thead>)', r'<th class="portfolio-op-cell portfolio-op-col">操作</th>\1', table_inner, count=1)
+    else:
+        table_inner = re.sub(r'^<div class="table-container">\s*<table class="style-table">\s*', '', content, flags=re.DOTALL)
+        table_inner = re.sub(r'\s*</table>\s*</div>\s*$', '\n    </table>', table_inner, flags=re.DOTALL)
+        # 分组「移除」列：表头增加「操作」（默认 tab 隐藏，分组 tab 显示）
+        table_inner = re.sub(r'(</tr>\s*</thead>)', r'<th class="portfolio-op-cell portfolio-op-col">操作</th>\1', table_inner, count=1)
+
+    fund_list_section = '''
+        <div class="fund-list-section portfolio-with-tabs" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+            <div class="portfolio-section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);">💎 自选基金</h3>
+            </div>
+            <div class="portfolio-tabs" id="portfolioTabs" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+''' + tabs_html + '''
+            </div>
+''' + add_fund_in_tab + '''
+            <div class="portfolio-table-wrap" id="portfolioTableWrap" style="overflow-x: auto;">
+                <div class="table-container">
+                <table class="style-table" id="portfolioFundTable">
+''' + table_inner + '''
+                </div>
+            </div>
+            <div class="portfolio-pagination" id="portfolioPagination" style="margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;"></div>
+        </div>
+'''
+    return file_operations + position_summary + operations_panel + fund_list_section
+
+
+
+def build_portfolio_table_rows(result_rows, code_to_group_ids, shares_map, with_op_col=False, with_position_col=True):
+    """
+    根据基金表格数据生成自选分组表格的 tbody 行 HTML（供按分组请求数据使用）。
+    :param result_rows: list of lists，每行 8 列：基金代码、基金名称、当前时间、净值、今日涨幅、昨日涨幅、连涨/跌、近30天
+    :param code_to_group_ids: dict, fund_code -> [group_id, ...]
+    :param shares_map: dict, fund_code -> shares 数值
+    :param with_op_col: 是否添加「操作」列（移除按钮），默认分组不含
+    :param with_position_col: 是否添加「持仓金额」列（设置/修改按钮），新建分组不含
+    :return: str, <tr>...</tr> 拼接的 HTML
+    """
+    def esc(s):
+        if s is None:
+            return ''
+        s = str(s)
+        return s.replace('<', '&lt;').replace('>', '&gt;').replace('&', '&amp;')
+
+    rows_html = []
+    for row in result_rows:
+        if len(row) < 8:
+            continue
+        fund_code = str(row[0])
+        group_ids = code_to_group_ids.get(fund_code, [])
+        try:
+            shares = float(shares_map.get(fund_code, 0) or 0)
+        except (ValueError, TypeError):
+            shares = 0
+        button_text = '修改' if shares > 0 else '设置'
+        button_color = '#10b981' if shares > 0 else '#3b82f6'
+        data_attrs = ' data-code="%s" data-holding="%s" data-watchlist="%s" data-groups="%s"' % (
+            esc(fund_code),
+            '1' if shares > 0 else '',
+            '1' if shares <= 0 else '',
+            ','.join(str(x) for x in group_ids),
+        )
+        tds = ''.join('<td>' + esc(cell) + '</td>' for cell in row)
+        op_td = ''
+        if with_op_col:
+            code_esc = fund_code.replace('\\', '\\\\').replace("'", "\\'").replace('"', '&quot;')
+            op_td = '<td class="portfolio-op-cell portfolio-op-col"><button type="button" class="btn btn-secondary btn-remove-from-group" data-code="' + esc(fund_code) + '" onclick="(typeof portfolioRemoveFundFromGroup===\'function\'&&portfolioRemoveFundFromGroup(\'' + code_esc + '\'));return false;" style="padding:4px 10px;font-size:0.85rem;">移除</button></td>'
+        position_td = ''
+        if with_position_col:
+            position_td = '<td class="portfolio-position-col"><button type="button" class="shares-button" id="sharesBtn_' + esc(fund_code) + '" data-fund-code="' + esc(fund_code) + '" style="padding: 6px 12px; background: ' + button_color + '; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: var(--font-size-base); transition: all 0.2s;">' + button_text + '</button></td>'
+        row_html = '<tr' + data_attrs + '>' + tds + position_td + op_td + '</tr>'
+        rows_html.append(row_html)
+    return ''.join(rows_html)
 
 
 def get_table_html(title, data, sortable_columns=None):

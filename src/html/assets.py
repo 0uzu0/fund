@@ -520,7 +520,8 @@ def get_javascript_code():
         const titles = {
             'sector': '选择要标注板块的基金',
             'unsector': '选择要删除板块的基金',
-            'delete': '选择要删除的基金'
+            'delete': '选择要删除的基金',
+            'addToGroup': '选择要加入分组的基金'
         };
         document.getElementById('fundSelectionTitle').textContent = titles[operation] || '选择基金';
 
@@ -628,6 +629,24 @@ def get_javascript_code():
             case 'delete':
                 await deleteFunds(selectedFundsForOperation);
                 break;
+            case 'addToGroup':
+                const groupId = window.portfolioAddToGroupId;
+                if (!groupId) { alert('分组未指定'); return; }
+                for (const code of selectedFundsForOperation) {
+                    try {
+                        const res = await fetch('/api/fund/groups/' + groupId + '/funds', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: code })
+                        });
+                        const data = await res.json();
+                        if (!data.success) alert(code + ': ' + (data.message || '添加失败'));
+                    } catch (e) { alert(code + ' 添加失败: ' + e.message); }
+                }
+                closeFundSelectionModal();
+                window.portfolioAddToGroupId = null;
+                location.reload();
+                return;
         }
 
         closeFundSelectionModal();

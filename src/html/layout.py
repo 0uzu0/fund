@@ -35,11 +35,11 @@ def get_top_navbar_html(username=None):
 def get_sidebar_menu_items_html(active_page, is_admin=False):
     """侧边栏菜单项 HTML（含可选的用户管理），供各页面复用"""
     menu_items = [
+        ('portfolio', '💰', '持仓基金'),
+        ('position-records', '📋', '持仓记录'),
         ('market', '📈', '市场行情'),
         ('market-indices', '📊', '市场指数'),
         ('precious-metals', '🥇', '贵金属行情'),
-        ('portfolio', '💰', '持仓基金'),
-        ('position-records', '📋', '持仓记录'),
         ('sectors', '🏢', '行业板块'),
     ]
     menu_html = ''

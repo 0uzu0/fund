@@ -152,6 +152,19 @@ class Database:
             )
         ''')
 
+        # 自定义分组表（用户自建分组，可添加基金）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS fund_groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                fund_codes TEXT NOT NULL DEFAULT '[]',
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
+
         # 用户表增加 is_admin 字段（迁移）
         cursor.execute("PRAGMA table_info(users)")
         user_cols = [c[1] for c in cursor.fetchall()]
@@ -610,6 +623,190 @@ class Database:
         except Exception as e:
             logger.error(f"Delete position record and restore failed: {e}")
             return False, str(e)
+
+    # ==================== Fund Groups（自定义分组）====================
+
+    def get_fund_groups(self, user_id):
+        """获取用户所有分组，按 sort_order 升序、id 升序。返回 [{'id', 'name', 'fund_codes', 'sort_order'}, ...]"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT id, name, fund_codes, sort_order FROM fund_groups WHERE user_id = ? ORDER BY sort_order ASC, id ASC',
+                (user_id,)
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            out = []
+            for row in rows:
+                codes = row['fund_codes']
+                if isinstance(codes, str):
+                    try:
+                        codes = json.loads(codes) if codes else []
+                    except Exception:
+                        codes = []
+                out.append({
+                    'id': row['id'],
+                    'name': row['name'],
+                    'fund_codes': codes if isinstance(codes, list) else [],
+                    'sort_order': row['sort_order'],
+                })
+            return out
+        except Exception as e:
+            logger.error(f"Get fund groups failed: {e}")
+            return []
+
+    def get_fund_group(self, user_id, group_id):
+        """获取单个分组，不存在或非本人返回 None。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT id, name, fund_codes, sort_order FROM fund_groups WHERE id = ? AND user_id = ?',
+                (group_id, user_id)
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                return None
+            codes = row['fund_codes']
+            if isinstance(codes, str):
+                try:
+                    codes = json.loads(codes) if codes else []
+                except Exception:
+                    codes = []
+            return {
+                'id': row['id'],
+                'name': row['name'],
+                'fund_codes': codes if isinstance(codes, list) else [],
+                'sort_order': row['sort_order'],
+            }
+        except Exception as e:
+            logger.error(f"Get fund group failed: {e}")
+            return None
+
+    def get_or_create_default_group(self, user_id):
+        """获取或创建「默认」分组（name='默认'，fund_codes 初始 []）。返回 group 字典，保证在列表首位（sort_order=-1）。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT id, name, fund_codes, sort_order FROM fund_groups WHERE user_id = ? AND name = ?',
+                (user_id, '默认')
+            )
+            row = cursor.fetchone()
+            if row:
+                codes = row['fund_codes']
+                if isinstance(codes, str):
+                    try:
+                        codes = json.loads(codes) if codes else []
+                    except Exception:
+                        codes = []
+                conn.close()
+                return {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'fund_codes': codes if isinstance(codes, list) else [],
+                    'sort_order': row['sort_order'],
+                }
+            cursor.execute(
+                'INSERT INTO fund_groups (user_id, name, fund_codes, sort_order) VALUES (?, ?, ?, ?)',
+                (user_id, '默认', '[]', -1)
+            )
+            gid = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            logger.debug(f"Created default group: user={user_id}, id={gid}")
+            return {'id': gid, 'name': '默认', 'fund_codes': [], 'sort_order': -1}
+        except Exception as e:
+            logger.error(f"Get or create default group failed: {e}")
+            return None
+
+    def get_default_group_id(self, user_id):
+        """返回用户「默认」分组的 id，不存在则返回 None。"""
+        g = self.get_or_create_default_group(user_id)
+        return g['id'] if g else None
+
+    def create_fund_group(self, user_id, name):
+        """新建分组。返回 (success: bool, message: str, group_id: int or None)。新增分组页面默认为空，fund_codes 固定为 []。"""
+        name = (name or '').strip()
+        if not name:
+            return False, '分组名称不能为空', None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                'INSERT INTO fund_groups (user_id, name, fund_codes, sort_order) VALUES (?, ?, ?, ?)',
+                (user_id, name, json.dumps([]), 0)
+            )
+            gid = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            logger.debug(f"Created fund group: user={user_id}, name={name}, id={gid}")
+            return True, '创建成功', gid
+        except Exception as e:
+            logger.error(f"Create fund group failed: {e}")
+            return False, str(e), None
+
+    def update_fund_group(self, user_id, group_id, name=None, fund_codes=None):
+        """更新分组名称和/或基金列表。返回 (success: bool, message: str)。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM fund_groups WHERE id = ? AND user_id = ?', (group_id, user_id))
+            if not cursor.fetchone():
+                conn.close()
+                return False, '分组不存在或无权操作'
+            if name is not None:
+                name = name.strip()
+                if not name:
+                    conn.close()
+                    return False, '分组名称不能为空'
+                cursor.execute('UPDATE fund_groups SET name = ? WHERE id = ? AND user_id = ?', (name, group_id, user_id))
+            if fund_codes is not None:
+                codes_json = json.dumps(fund_codes if isinstance(fund_codes, list) else [])
+                cursor.execute('UPDATE fund_groups SET fund_codes = ? WHERE id = ? AND user_id = ?', (codes_json, group_id, user_id))
+            conn.commit()
+            conn.close()
+            return True, '更新成功'
+        except Exception as e:
+            logger.error(f"Update fund group failed: {e}")
+            return False, str(e)
+
+    def delete_fund_group(self, user_id, group_id):
+        """删除分组。返回 (success: bool, message: str)。"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM fund_groups WHERE id = ? AND user_id = ?', (group_id, user_id))
+            conn.commit()
+            n = cursor.rowcount
+            conn.close()
+            if n:
+                return True, '已删除'
+            return False, '分组不存在或无权操作'
+        except Exception as e:
+            logger.error(f"Delete fund group failed: {e}")
+            return False, str(e)
+
+    def add_fund_to_group(self, user_id, group_id, fund_code):
+        """将基金加入分组（去重）。返回 (success: bool, message: str)。"""
+        group = self.get_fund_group(user_id, group_id)
+        if not group:
+            return False, '分组不存在或无权操作'
+        codes = list(group['fund_codes'])
+        if fund_code in codes:
+            return True, '已在分组中'
+        codes.append(fund_code)
+        return self.update_fund_group(user_id, group_id, fund_codes=codes)
+
+    def remove_fund_from_group(self, user_id, group_id, fund_code):
+        """从分组中移除基金。返回 (success: bool, message: str)。"""
+        group = self.get_fund_group(user_id, group_id)
+        if not group:
+            return False, '分组不存在或无权操作'
+        codes = [c for c in group['fund_codes'] if c != fund_code]
+        return self.update_fund_group(user_id, group_id, fund_codes=codes)
 
     def add_fund(self, user_id, fund_code, fund_key, fund_name):
         """添加基金到用户列表

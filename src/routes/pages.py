@@ -124,7 +124,11 @@ def get_portfolio():
         fund_content = my_fund.fund_html()
         fund_map = db.get_user_funds(user_id)
         shares_map = {code: data.get('shares', 0) for code, data in fund_map.items()}
-        fund_content = enhance_fund_tab_content(fund_content, shares_map)
+        groups = db.get_fund_groups(user_id)
+        default_group = db.get_or_create_default_group(user_id)
+        if default_group:
+            groups = [default_group] + [g for g in groups if g.get('id') != default_group['id']]
+        fund_content = enhance_fund_tab_content(fund_content, shares_map, groups=groups, use_empty_table=True)
     except Exception as e:
         fund_content = f"<p style='color:#f44336;'>数据加载失败: {str(e)}</p>"
 
@@ -169,6 +173,26 @@ def get_portfolio():
         fund_map=my_fund.CACHE_MAP,
         fund_chart_data=fund_chart_data,
         fund_chart_info=fund_chart_info,
+        username=get_current_username(),
+        is_admin=is_admin()
+    )
+    return html
+
+
+@pages_bp.route('/portfolio/group/<int:group_id>')
+@login_required
+def get_fund_group(group_id):
+    db = get_db()
+    user_id = get_current_user_id()
+    group = db.get_fund_group(user_id, group_id)
+    if not group:
+        return redirect('/portfolio')
+    fund_map = db.get_user_funds(user_id)
+    from src.module_html import get_fund_group_page_html
+    html = get_fund_group_page_html(
+        group_id=group_id,
+        group=group,
+        fund_map=fund_map,
         username=get_current_username(),
         is_admin=is_admin()
     )

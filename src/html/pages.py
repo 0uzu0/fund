@@ -2031,6 +2031,45 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
             overflow: hidden;
         }}
 
+        .portfolio-tab {{
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--text-main);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }}
+
+        .portfolio-tab:hover {{
+            background: rgba(59, 130, 246, 0.15);
+            border-color: var(--accent);
+        }}
+
+        .portfolio-tab.active {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }}
+
+        .portfolio-tab-new {{
+            border-style: dashed;
+        }}
+
+        .portfolio-tab-group {{
+            background: rgba(59, 130, 246, 0.08);
+            border-color: rgba(59, 130, 246, 0.35);
+        }}
+
+        .portfolio-tab-group:hover {{
+            background: rgba(59, 130, 246, 0.18);
+        }}
+
+        .portfolio-tab-group.active {{
+            background: rgba(59, 130, 246, 0.25);
+            border-color: var(--accent);
+        }}
+
         @media (max-width: 768px) {{
             .main-container {{
                 flex-direction: column;
@@ -2368,9 +2407,24 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 </div>
             </div>
 
-            <!-- 基金内容 -->
+            <!-- 基金内容（含持有/自选/分组 tab 与分页，由 fund_content 内 portfolio-with-tabs 提供） -->
             <div class="fund-content">
                 {fund_content}
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建分组弹窗 -->
+    <div class="sector-modal" id="newGroupModal">
+        <div class="sector-modal-content" style="max-width: 360px;">
+            <div class="sector-modal-header">新建分组</div>
+            <div style="padding: 16px 20px;">
+                <label style="display: block; font-size: var(--font-size-base); color: var(--text-dim); margin-bottom: 8px;">分组名称</label>
+                <input type="text" id="newGroupName" placeholder="例如：科技板块" class="sector-modal-search" style="width: 100%; margin-bottom: 0;">
+            </div>
+            <div class="sector-modal-footer">
+                <button class="btn btn-secondary" onclick="closeNewGroupModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitNewGroup()">创建</button>
             </div>
         </div>
     </div>
@@ -2947,9 +3001,577 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 console.error('Failed to load fund chart data:', error);
             }}
         }}
+
+        // 持仓 tab 切换与分页（每页 10 条，每个 tab 独立页码）
+        const PORTFOLIO_PAGE_SIZE = 10;
+        let portfolioCurrentTab = '';
+        let portfolioPageByTab = {{}};
+        let portfolioRowCountByTab = {{}};
+
+        function portfolioGetVisibleRows() {{
+            if (!portfolioCurrentTab || !portfolioCurrentTab.startsWith('group-')) return [];
+            const tbody = document.querySelector('#portfolioTableWrap .table-container tbody');
+            if (!tbody) return [];
+            return Array.from(tbody.querySelectorAll('tr')).filter(tr => tr.getAttribute('data-code'));
+        }}
+
+        function portfolioRender() {{
+            const rows = portfolioGetVisibleRows();
+            const tab = portfolioCurrentTab;
+            const total = (tab && portfolioRowCountByTab[tab] !== undefined) ? portfolioRowCountByTab[tab] : rows.length;
+            const totalPages = Math.max(1, Math.ceil(total / PORTFOLIO_PAGE_SIZE));
+            let page = (tab && portfolioPageByTab[tab]) ? portfolioPageByTab[tab] : 1;
+            page = Math.min(Math.max(1, page), totalPages);
+            if (tab) portfolioPageByTab[tab] = page;
+            const start = (page - 1) * PORTFOLIO_PAGE_SIZE;
+            const end = start + PORTFOLIO_PAGE_SIZE;
+            rows.forEach((tr, i) => {{
+                tr.style.display = (i >= start && i < end) ? '' : 'none';
+            }});
+            const paginationEl = document.getElementById('portfolioPagination');
+            if (paginationEl) {{
+                let html = '<span style="color:var(--text-dim);">共 ' + total + ' 条</span>';
+                html += ' <button type="button" class="btn btn-secondary" onclick="portfolioSetPage(' + (page - 1) + ')" ' + (page <= 1 ? 'disabled' : '') + '>上一页</button>';
+                html += ' <span style="min-width:80px;text-align:center;">第 ' + page + ' / ' + totalPages + ' 页</span>';
+                html += ' <button type="button" class="btn btn-secondary" onclick="portfolioSetPage(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>下一页</button>';
+                paginationEl.innerHTML = html;
+            }}
+        }}
+
+        function portfolioSetPage(p) {{
+            if (!portfolioCurrentTab) return;
+            portfolioPageByTab[portfolioCurrentTab] = p;
+            portfolioRender();
+        }}
+
+        function portfolioSetTab(tab) {{
+            portfolioCurrentTab = tab;
+            const wrap = document.getElementById('portfolioTableWrap');
+            if (wrap) wrap.setAttribute('data-current-tab', tab || '');
+            document.querySelectorAll('#portfolioTabs .portfolio-tab').forEach(btn => {{
+                btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+            }});
+            const groupActionsWrap = document.getElementById('portfolioGroupActionsWrap');
+            const tabBtnEl = document.querySelector('#portfolioTabs .portfolio-tab[data-tab="' + tab + '"]');
+            const isDefaultTab = tabBtnEl && tabBtnEl.getAttribute('data-default') === '1';
+            const opCols = document.querySelectorAll('#portfolioTableWrap .portfolio-op-col');
+            const posCols = document.querySelectorAll('#portfolioTableWrap .portfolio-position-col');
+            opCols.forEach(el => {{ el.style.display = isDefaultTab ? 'none' : ''; }});
+            posCols.forEach(el => {{ el.style.display = isDefaultTab ? '' : 'none'; }});
+            if (tab.startsWith('group-')) {{
+                if (groupActionsWrap) groupActionsWrap.style.display = isDefaultTab ? 'none' : 'block';
+                const delBtn = document.getElementById('portfolioDeleteGroupBtn');
+                if (delBtn && !isDefaultTab) {{
+                    delBtn.onclick = function() {{
+                        if (!confirm('确定要删除该分组吗？')) return;
+                        const gid = tab.replace('group-', '');
+                        fetch('/api/fund/groups/' + gid, {{ method: 'DELETE' }}).then(r => r.json()).then(data => {{
+                            if (data.success) location.reload(); else alert(data.message || '删除失败');
+                        }}).catch(e => alert('删除失败: ' + e.message));
+                    }};
+                }}
+            }} else {{
+                if (groupActionsWrap) groupActionsWrap.style.display = 'none';
+            }}
+            const portfolioTbody = function() {{ return document.querySelector('#portfolioTableWrap .table-container tbody'); }};
+            const tbody = portfolioTbody();
+            if (tab && tab.startsWith('group-')) {{
+                const gid = tab.replace('group-', '');
+                const requestedTab = tab;
+                if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:24px;">加载中...</td></tr>';
+                fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                    if (portfolioCurrentTab !== requestedTab) return;
+                    const t = portfolioTbody();
+                    if (t) {{
+                        if (resp.success && resp.html !== undefined && resp.html !== null) {{
+                            t.innerHTML = resp.html;
+                            if (typeof resp.total === 'number') portfolioRowCountByTab[requestedTab] = resp.total;
+                        }} else {{
+                            t.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:24px;">加载失败</td></tr>';
+                            portfolioRowCountByTab[requestedTab] = 0;
+                        }}
+                    }}
+                    requestAnimationFrame(function() {{ portfolioRender(); }});
+                }}).catch(function() {{
+                    if (portfolioCurrentTab !== requestedTab) return;
+                    const t = portfolioTbody();
+                    if (t) t.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:24px;">加载失败</td></tr>';
+                    portfolioRowCountByTab[requestedTab] = 0;
+                    requestAnimationFrame(function() {{ portfolioRender(); }});
+                }});
+            }} else {{
+                portfolioRender();
+            }}
+        }}
+
+        async function portfolioRemoveFundFromGroup(code) {{
+            const tab = portfolioCurrentTab;
+            if (!tab || !tab.startsWith('group-')) {{ alert('请先切换到分组'); return; }}
+            if (!confirm('确定从该分组中移除该基金吗？')) return;
+            const gid = tab.replace('group-', '');
+            try {{
+                const res = await fetch('/api/fund/groups/' + gid + '/funds/' + encodeURIComponent(code), {{ method: 'DELETE' }});
+                const data = await res.json();
+                if (data.success) {{
+                    fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                        const t = document.querySelector('#portfolioTableWrap .table-container tbody');
+                        if (t && resp.success && resp.html != null) {{
+                            t.innerHTML = resp.html;
+                            if (typeof resp.total === 'number') portfolioRowCountByTab[portfolioCurrentTab] = resp.total;
+                        }}
+                        requestAnimationFrame(function() {{ portfolioRender(); }});
+                    }}).catch(function() {{ requestAnimationFrame(function() {{ portfolioRender(); }}); }});
+                }} else alert(data.message || '移除失败');
+            }} catch (e) {{ alert('移除失败: ' + e.message); }}
+        }}
+
+        window.portfolioRemoveFundFromGroup = portfolioRemoveFundFromGroup;
+
+        let portfolioFundSuggestList = [];
+        const portfolioSuggestMax = 12;
+
+        function portfolioFetchFundList(cb) {{
+            if (portfolioFundSuggestList.length > 0) {{ if (cb) cb(); return; }}
+            fetch('/api/portfolio/fund-list', {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                if (resp.success && Array.isArray(resp.funds)) portfolioFundSuggestList = resp.funds;
+                if (cb) cb();
+            }}).catch(function() {{ if (cb) cb(); }});
+        }}
+
+        function portfolioShowSuggest(input, word) {{
+            const listEl = document.getElementById('portfolioFundSuggestList');
+            if (!listEl) return;
+            word = (word || '').trim().toLowerCase();
+            const filtered = word ? portfolioFundSuggestList.filter(function(f) {{
+                return (f.code && f.code.indexOf(word) !== -1) || (f.name && f.name.toLowerCase().indexOf(word) !== -1);
+            }}) : portfolioFundSuggestList.slice(0, portfolioSuggestMax);
+            listEl.innerHTML = '';
+            if (filtered.length === 0) {{ listEl.style.display = 'none'; return; }}
+            filtered.slice(0, portfolioSuggestMax).forEach(function(f) {{
+                const div = document.createElement('div');
+                div.setAttribute('data-code', f.code);
+                div.style.cssText = 'padding: 8px 12px; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main); border-bottom: 1px solid var(--border);';
+                div.textContent = f.code + '  ' + (f.name || '');
+                div.addEventListener('mouseenter', function() {{ this.style.background = 'var(--hover-bg, rgba(59,130,246,0.1))'; }});
+                div.addEventListener('mouseleave', function() {{ this.style.background = ''; }});
+                div.addEventListener('mousedown', function(e) {{ e.preventDefault(); portfolioSelectSuggest(f.code); }});
+                listEl.appendChild(div);
+            }});
+            listEl.style.display = 'block';
+        }}
+
+        function portfolioSelectSuggest(code) {{
+            const input = document.getElementById('fundCodesInput');
+            if (!input) return;
+            const val = input.value;
+            const comma = /[,，\\s]+/;
+            const parts = val.split(comma).map(function(s) {{ return s.trim(); }});
+            const lastPart = parts[parts.length - 1] || '';
+            const beforeLast = val.substring(0, val.length - lastPart.length).replace(/[,，\\s]*$/, '');
+            const newVal = beforeLast ? (beforeLast + (beforeLast ? ',' : '') + code) : code;
+            input.value = newVal;
+            document.getElementById('portfolioFundSuggestList').style.display = 'none';
+            input.focus();
+        }}
+
+        function portfolioBindFundSuggest() {{
+            const input = document.getElementById('fundCodesInput');
+            const listEl = document.getElementById('portfolioFundSuggestList');
+            if (!input || !listEl) return;
+            input.addEventListener('focus', function() {{
+                portfolioFetchFundList(function() {{
+                    const val = input.value;
+                    const parts = val.split(/[,，\\s]+/).map(function(s) {{ return s.trim(); }});
+                    portfolioShowSuggest(input, parts[parts.length - 1] || '');
+                }});
+            }});
+            input.addEventListener('input', function() {{
+                const val = input.value;
+                const parts = val.split(/[,，\\s]+/).map(function(s) {{ return s.trim(); }});
+                portfolioShowSuggest(input, parts[parts.length - 1] || '');
+            }});
+            input.addEventListener('keydown', function(e) {{
+                if (e.key === 'Escape') {{ listEl.style.display = 'none'; }}
+            }});
+            listEl.addEventListener('mousedown', function(e) {{ e.preventDefault(); }});
+            document.addEventListener('click', function(e) {{
+                if (input.contains(e.target) || listEl.contains(e.target)) return;
+                listEl.style.display = 'none';
+            }});
+        }}
+
+        async function portfolioAddByInput() {{
+            const input = document.getElementById('fundCodesInput');
+            if (!input) return;
+            const codes = input.value.trim();
+            if (!codes) {{ alert('请输入基金代码'); return; }}
+            const tab = portfolioCurrentTab;
+            if (tab && tab.startsWith('group-')) {{
+                const gid = tab.replace('group-', '');
+                const codeList = codes.split(/[,，\\s]+/).map(s => s.trim()).filter(Boolean);
+                if (!codeList.length) {{ alert('请输入基金代码'); return; }}
+                let anySuccess = false;
+                for (const code of codeList) {{
+                    try {{
+                        const res = await fetch('/api/fund/groups/' + gid + '/funds', {{
+                            method: 'POST',
+                            headers: {{ 'Content-Type': 'application/json' }},
+                            body: JSON.stringify({{ code: code }})
+                        }});
+                        const data = await res.json();
+                        if (data.success) anySuccess = true;
+                        else alert(code + ': ' + (data.message || '添加失败'));
+                    }} catch (e) {{ alert(code + ' 添加失败: ' + e.message); }}
+                }}
+                input.value = '';
+                if (anySuccess) {{
+                    fetch('/api/portfolio/table?group=' + encodeURIComponent(gid), {{ cache: 'no-store' }}).then(r => r.json()).then(function(resp) {{
+                        const t = document.querySelector('#portfolioTableWrap .table-container tbody');
+                        if (t && resp.success && resp.html != null) {{
+                            t.innerHTML = resp.html;
+                            if (typeof resp.total === 'number') portfolioRowCountByTab[portfolioCurrentTab] = resp.total;
+                        }}
+                        requestAnimationFrame(function() {{ portfolioRender(); }});
+                    }}).catch(function() {{ requestAnimationFrame(function() {{ portfolioRender(); }}); }});
+                }}
+                return;
+            }}
+        }}
+
+        function openNewGroupModal() {{
+            document.getElementById('newGroupName').value = '';
+            document.getElementById('newGroupModal').classList.add('active');
+        }}
+
+        function closeNewGroupModal() {{
+            document.getElementById('newGroupModal').classList.remove('active');
+        }}
+
+        async function submitNewGroup() {{
+            const name = (document.getElementById('newGroupName').value || '').trim();
+            if (!name) {{ alert('请输入分组名称'); return; }}
+            try {{
+                const res = await fetch('/api/fund/groups', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ name: name }})
+                }});
+                const data = await res.json();
+                if (data.success && data.group_id) {{
+                    closeNewGroupModal();
+                    location.reload();
+                }} else {{
+                    alert(data.message || '创建失败');
+                }}
+            }} catch (e) {{
+                alert('创建失败: ' + e.message);
+            }}
+        }}
+
+        function portfolioSyncUrlFromTab(tab) {{
+            const gid = tab ? tab.replace('group-', '') : '';
+            const url = gid ? '/portfolio?group=' + encodeURIComponent(gid) : '/portfolio';
+            if (location.search !== (gid ? '?group=' + encodeURIComponent(gid) : '')) {{
+                history.replaceState({{ tab: tab }}, '', url);
+            }}
+        }}
+
+        document.addEventListener('DOMContentLoaded', function() {{
+            const tabsEl = document.getElementById('portfolioTabs');
+            if (tabsEl) {{
+                const params = new URLSearchParams(location.search);
+                const groupParam = params.get('group');
+                let tabToShow = '';
+                if (groupParam !== null && groupParam !== '') {{
+                    const btn = document.querySelector('#portfolioTabs .portfolio-tab[data-tab="group-' + groupParam + '"]');
+                    if (btn) tabToShow = 'group-' + groupParam;
+                }}
+                if (!tabToShow) {{
+                    const activeTab = document.querySelector('#portfolioTabs .portfolio-tab.active');
+                    tabToShow = activeTab ? activeTab.getAttribute('data-tab') || '' : '';
+                }}
+                if (tabToShow) {{
+                    portfolioCurrentTab = tabToShow;
+                    document.querySelectorAll('#portfolioTabs .portfolio-tab').forEach(btn => {{
+                        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabToShow);
+                    }});
+                    portfolioSetTab(tabToShow);
+                    portfolioSyncUrlFromTab(tabToShow);
+                }}
+                tabsEl.addEventListener('click', function(e) {{
+                    const tabBtn = e.target.closest('.portfolio-tab');
+                    if (!tabBtn) return;
+                    if (tabBtn.classList.contains('portfolio-tab-new')) {{
+                        openNewGroupModal();
+                        return;
+                    }}
+                    const tab = tabBtn.getAttribute('data-tab');
+                    if (tab) {{
+                        portfolioSetTab(tab);
+                        portfolioSyncUrlFromTab(tab);
+                    }}
+                }});
+            }}
+            const addByInputBtn = document.getElementById('portfolioAddByInputBtn');
+            if (addByInputBtn) addByInputBtn.addEventListener('click', portfolioAddByInput);
+            portfolioBindFundSuggest();
+            const fundTable = document.getElementById('portfolioFundTable');
+            if (fundTable) fundTable.addEventListener('click', function(e) {{
+                const btnRemove = e.target.closest('.btn-remove-from-group');
+                if (btnRemove) {{ e.preventDefault(); portfolioRemoveFundFromGroup(btnRemove.getAttribute('data-code')); }}
+            }});
+            const btnNew2 = document.getElementById('portfolioBtnNewGroup');
+            if (btnNew2) btnNew2.addEventListener('click', openNewGroupModal);
+            window.addEventListener('popstate', function(e) {{
+                const params = new URLSearchParams(location.search);
+                const groupParam = params.get('group');
+                let tabToShow = '';
+                if (groupParam !== null && groupParam !== '') {{
+                    const btn = document.querySelector('#portfolioTabs .portfolio-tab[data-tab="group-' + groupParam + '"]');
+                    if (btn) tabToShow = 'group-' + groupParam;
+                }}
+                if (!tabToShow) {{
+                    const firstTab = document.querySelector('#portfolioTabs .portfolio-tab:not(.portfolio-tab-new)');
+                    tabToShow = firstTab ? firstTab.getAttribute('data-tab') || '' : '';
+                }}
+                if (tabToShow && tabToShow !== portfolioCurrentTab) {{
+                    portfolioCurrentTab = tabToShow;
+                    document.querySelectorAll('#portfolioTabs .portfolio-tab').forEach(btn => {{
+                        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabToShow);
+                    }});
+                    portfolioSetTab(tabToShow);
+                }}
+            }});
+        }});
     </script>
 </body>
 </html>'''.format(css_style=css_style, username_display=username_display, fund_content=fund_content, fund_chart_data_json=fund_chart_data_json, fund_chart_info_json=fund_chart_info_json, sidebar_menu_html=sidebar_menu_html)
+    return html
+
+
+def get_fund_group_page_html(group_id, group, fund_map, username=None, is_admin=False):
+    """分组编辑页：可修改分组名称、添加/移除基金。group: {id, name, fund_codes}"""
+    css_style = get_css_style()
+    sidebar_menu_html = get_sidebar_menu_items_html('portfolio', is_admin)
+
+    username_display = ''
+    if username:
+        username_display += '<span class="nav-user">🍎 {username}</span>'.format(username=username)
+        username_display += '<a href="/logout" class="nav-logout">退出登录</a>'
+
+    group_name = (group or {}).get('name') or '未命名'
+    fund_codes = (group or {}).get('fund_codes') or []
+
+    # 分组内基金行 HTML（代码、名称、移除按钮），class="group-fund-row" 用于分页
+    fund_rows_html = ''
+    for code in fund_codes:
+        name = (fund_map.get(code) or {}).get('fund_name') or code
+        code_esc = code.replace('\\', '\\\\').replace("'", "\\'").replace('"', '&quot;')
+        fund_rows_html += '''
+            <tr class="group-fund-row">
+                <td style="padding:10px;color:var(--accent);font-weight:500;">{code}</td>
+                <td style="padding:10px;color:var(--text-main);">{name}</td>
+                <td style="padding:10px;">
+                    <button type="button" class="btn btn-secondary group-remove-fund" data-code="{code}" onclick="removeFundFromGroup(\'{code_esc}\');return false;" style="padding:4px 10px;font-size:0.85rem;">移除</button>
+                </td>
+            </tr>
+        '''.format(code=code, name=name.replace('<', '&lt;').replace('>', '&gt;'), code_esc=code_esc)
+
+    if not fund_rows_html:
+        fund_rows_html = '<tr><td colspan="3" style="padding:20px;color:var(--text-dim);text-align:center;">暂无基金，点击「添加基金」加入</td></tr>'
+
+    html = '''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑分组 - LanFund</title>
+    <link rel="icon" href="/static/1.ico">
+    {css_style}
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {{ background-color: var(--terminal-bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }}
+        .top-navbar {{ background-color: var(--card-bg); padding: 0.8rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }}
+        .top-navbar-brand {{ display: flex; align-items: center; }} .top-navbar-quote {{ flex: 1; text-align: center; font-size: 1rem; }} .top-navbar-menu {{ display: flex; gap: 1rem; align-items: center; }}
+        .nav-user {{ color: #3b82f6; }} .nav-logout {{ color: #f85149; text-decoration: none; }}
+        .main-container {{ display: flex; flex: 1; }}
+        .content-area {{ flex: 1; padding: 30px; overflow-y: auto; }}
+        .group-page-header {{ margin-bottom: 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }}
+        .group-name-input {{ padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); font-size: 1rem; min-width: 200px; }}
+        .group-funds-table {{ width: 100%; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }}
+        .group-funds-table th {{ padding: 12px; text-align: left; background: rgba(59,130,246,0.1); color: var(--text-dim); font-weight: 500; }}
+        .group-funds-table td {{ border-top: 1px solid var(--border); }}
+    </style>
+</head>
+<body>
+    <nav class="top-navbar">
+        <div class="top-navbar-brand"><img src="/static/1.ico" alt="Logo" class="navbar-logo"></div>
+        <div class="top-navbar-quote">编辑分组</div>
+        <div class="top-navbar-menu">{username_display}</div>
+    </nav>
+    <div class="main-container">
+        <div class="sidebar" style="width: 220px; border-right: 1px solid var(--border); padding: 16px 0;">
+            <div class="sidebar-toggle" id="sidebarToggle">▶</div>
+            {sidebar_menu_html}
+        </div>
+        <div class="content-area">
+            <div class="group-page-header">
+                <a href="/portfolio" style="color: var(--accent); text-decoration: none;">← 返回持仓基金</a>
+                <h1 style="margin: 0; font-size: 1.5rem;">📁 编辑分组</h1>
+            </div>
+            <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <label style="color: var(--text-dim);">分组名称</label>
+                <input type="text" id="groupNameInput" class="group-name-input" value="{group_name_esc}" placeholder="输入分组名称">
+                <button type="button" class="btn btn-primary" onclick="saveGroupName()">保存名称</button>
+                <button type="button" class="btn btn-secondary" onclick="openAddFundModal()">+ 添加基金</button>
+                <button type="button" class="btn btn-secondary" style="color: #f85149;" onclick="deleteGroup()">删除分组</button>
+            </div>
+            <table class="group-funds-table">
+                <thead><tr><th>基金代码</th><th>基金名称</th><th>操作</th></tr></thead>
+                <tbody id="groupFundsBody">
+                    {fund_rows_html}
+                </tbody>
+            </table>
+            <div id="groupPagination" style="margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;"></div>
+        </div>
+    </div>
+
+    <div class="sector-modal" id="addFundToGroupModal">
+        <div class="sector-modal-content" style="max-width: 480px;">
+            <div class="sector-modal-header">添加基金到分组</div>
+            <input type="text" class="sector-modal-search" id="addFundSearch" placeholder="搜索基金代码或名称...">
+            <div id="addFundToList" style="max-height: 360px; overflow-y: auto;"></div>
+            <div class="sector-modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddFundModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const groupId = {group_id};
+        const initialFundCodes = {fund_codes_json};
+        const GROUP_PAGE_SIZE = 10;
+        let groupCurrentPage = 1;
+
+        function groupRenderPagination() {{
+            const rows = Array.from(document.querySelectorAll('#groupFundsBody .group-fund-row'));
+            const total = rows.length;
+            const totalPages = Math.max(1, Math.ceil(total / GROUP_PAGE_SIZE));
+            groupCurrentPage = Math.min(Math.max(1, groupCurrentPage), totalPages);
+            const start = (groupCurrentPage - 1) * GROUP_PAGE_SIZE;
+            const end = start + GROUP_PAGE_SIZE;
+            rows.forEach((tr, i) => {{ tr.style.display = (i >= start && i < end) ? '' : 'none'; }});
+            const paginationEl = document.getElementById('groupPagination');
+            if (paginationEl) {{
+                let html = '<span style="color:var(--text-dim);">共 ' + total + ' 条</span>';
+                html += ' <button type="button" class="btn btn-secondary" onclick="groupSetPage(' + (groupCurrentPage - 1) + ')" ' + (groupCurrentPage <= 1 ? 'disabled' : '') + '>上一页</button>';
+                html += ' <span style="min-width:80px;text-align:center;">第 ' + groupCurrentPage + ' / ' + totalPages + ' 页</span>';
+                html += ' <button type="button" class="btn btn-secondary" onclick="groupSetPage(' + (groupCurrentPage + 1) + ')" ' + (groupCurrentPage >= totalPages ? 'disabled' : '') + '>下一页</button>';
+                paginationEl.innerHTML = html;
+            }}
+        }}
+
+        function groupSetPage(p) {{
+            groupCurrentPage = p;
+            groupRenderPagination();
+        }}
+
+        async function saveGroupName() {{
+            const name = document.getElementById('groupNameInput').value.trim();
+            if (!name) {{ alert('请输入分组名称'); return; }}
+            try {{
+                const res = await fetch('/api/fund/groups/' + groupId, {{
+                    method: 'PUT',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ name: name }})
+                }});
+                const data = await res.json();
+                if (data.success) alert('已保存');
+                else alert(data.message || '保存失败');
+            }} catch (e) {{ alert('保存失败: ' + e.message); }}
+        }}
+
+        async function deleteGroup() {{
+            if (!confirm('确定要删除该分组吗？')) return;
+            try {{
+                const res = await fetch('/api/fund/groups/' + groupId, {{ method: 'DELETE' }});
+                const data = await res.json();
+                if (data.success) location.href = '/portfolio';
+                else alert(data.message || '删除失败');
+            }} catch (e) {{ alert('删除失败: ' + e.message); }}
+        }}
+        window.deleteGroup = deleteGroup;
+
+        async function removeFundFromGroup(code) {{
+            if (!code) return;
+            if (!confirm('确定从该分组中移除该基金吗？')) return;
+            try {{
+                const res = await fetch('/api/fund/groups/' + groupId + '/funds/' + encodeURIComponent(code), {{ method: 'DELETE' }});
+                const data = await res.json();
+                if (data.success) location.reload();
+                else alert(data.message || '移除失败');
+            }} catch (e) {{ alert('移除失败: ' + e.message); }}
+        }}
+        window.removeFundFromGroup = removeFundFromGroup;
+
+        document.getElementById('groupFundsBody').addEventListener('click', function(e) {{
+            const btn = e.target.closest('.group-remove-fund');
+            if (btn) removeFundFromGroup(btn.dataset.code);
+        }});
+
+        groupRenderPagination();
+
+        let allFundsForAdd = [];
+        function openAddFundModal() {{
+            document.getElementById('addFundToGroupModal').classList.add('active');
+            fetch('/api/fund/data').then(r => r.json()).then(fundMap => {{
+                const currentCodes = Array.from(document.querySelectorAll('.group-remove-fund')).map(b => b.dataset.code);
+                allFundsForAdd = Object.entries(fundMap).filter(([code]) => !currentCodes.includes(code)).map(([code, data]) => ({{ code, name: data.fund_name || code }}));
+                renderAddFundList(allFundsForAdd);
+            }});
+        }}
+
+        function closeAddFundModal() {{
+            document.getElementById('addFundToGroupModal').classList.remove('active');
+        }}
+
+        function renderAddFundList(funds) {{
+            const keyword = (document.getElementById('addFundSearch').value || '').toLowerCase();
+            const filtered = keyword ? funds.filter(f => f.code.toLowerCase().includes(keyword) || (f.name || '').toLowerCase().includes(keyword)) : funds;
+            const html = filtered.length ? filtered.map(f => '<div class="sector-item add-fund-item" style="padding:12px;cursor:pointer;" data-code="' + String(f.code).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + String(f.code).replace(/</g, '&lt;') + ' - ' + String(f.name || '').replace(/</g, '&lt;') + '</div>').join('') : '<div style="padding:16px;color:var(--text-dim);">暂无可添加基金</div>';
+            document.getElementById('addFundToList').innerHTML = html;
+        }}
+
+        document.getElementById('addFundToList').addEventListener('click', function(e) {{
+            const item = e.target.closest('.add-fund-item');
+            if (item) addFundToGroup(item.getAttribute('data-code'));
+        }});
+
+        document.getElementById('addFundSearch').addEventListener('input', function() {{ renderAddFundList(allFundsForAdd); }});
+
+        async function addFundToGroup(code) {{
+            try {{
+                const res = await fetch('/api/fund/groups/' + groupId + '/funds', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ code: code }})
+                }});
+                const data = await res.json();
+                if (data.success) {{ closeAddFundModal(); location.reload(); }}
+                else alert(data.message || '添加失败');
+            }} catch (e) {{ alert('添加失败: ' + e.message); }}
+        }}
+    </script>
+</body>
+</html>'''.format(
+        css_style=css_style,
+        username_display=username_display,
+        group_name_esc=group_name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;'),
+        fund_rows_html=fund_rows_html,
+        group_id=group_id,
+        fund_codes_json=__import__('json').dumps(fund_codes),
+        sidebar_menu_html=sidebar_menu_html,
+    )
     return html
 
 

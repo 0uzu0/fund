@@ -16,6 +16,7 @@ from loguru import logger
 from src.auth import login_required, get_current_user_id
 from src.routes import get_db, get_get_lan_fund
 from src.module_html import enhance_fund_tab_content
+from src.html.fund import build_portfolio_table_rows
 
 api_bp = Blueprint('api', __name__)
 
@@ -316,6 +317,226 @@ def api_fund_position_record_delete(record_id):
         return jsonify({'success': False, 'message': message}), 400
     except Exception as e:
         logger.error(f"撤销持仓记录失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ---------- 自选分组表格数据（按分组请求）----------
+@api_bp.route('/api/portfolio/table', methods=['GET'])
+@login_required
+def api_portfolio_table():
+    """按分组返回自选基金表格 tbody 行 HTML。query: group=<分组id>，不传或传默认分组 id 时返回默认（所有分组并集）数据。"""
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        groups = db.get_fund_groups(user_id)
+        default_group = db.get_or_create_default_group(user_id)
+        if default_group:
+            groups = [default_group] + [g for g in groups if g.get('id') != default_group['id']]
+        default_gid = default_group['id'] if default_group else None
+
+        group_param = request.args.get('group')
+        if group_param is None or group_param == '':
+            group_param = str(default_gid) if default_gid is not None else None
+        else:
+            try:
+                group_param = str(int(group_param))
+            except (ValueError, TypeError):
+                group_param = str(default_gid) if default_gid is not None else None
+
+        code_to_group_ids = {}
+        for g in groups:
+            gid = g.get('id')
+            codes = g.get('fund_codes') or []
+            if gid is not None:
+                for code in codes:
+                    code_to_group_ids.setdefault(str(code), []).append(gid)
+
+        if group_param is None:
+            codes = set()
+        elif group_param == str(default_gid):
+            codes = set()
+            for g in groups:
+                for code in (g.get('fund_codes') or []):
+                    codes.add(str(code))
+        else:
+            codes = set()
+            for g in groups:
+                if str(g.get('id')) == group_param:
+                    codes = set(str(c) for c in (g.get('fund_codes') or []))
+                    break
+
+        fund_map = db.get_user_funds(user_id)
+        shares_map = {code: data.get('shares', 0) for code, data in fund_map.items()}
+
+        my_fund = get_get_lan_fund()(user_id)
+        full_result = my_fund.search_code(True)
+        if not full_result:
+            full_result = []
+        result_rows = [r for r in full_result if len(r) > 0 and str(r[0]) in codes]
+
+        is_default_group = group_param is not None and group_param == str(default_gid)
+        with_op_col = not is_default_group
+        with_position_col = is_default_group
+        html = build_portfolio_table_rows(result_rows, code_to_group_ids, shares_map, with_op_col=with_op_col, with_position_col=with_position_col)
+        resp = jsonify({'success': True, 'html': html, 'total': len(result_rows)})
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        return resp
+    except Exception as e:
+        logger.error(f"获取分组表格数据失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ---------- 默认页基金列表（供新建分组添加联想）----------
+@api_bp.route('/api/portfolio/fund-list', methods=['GET'])
+@login_required
+def api_portfolio_fund_list():
+    """返回默认页所有基金列表（各分组并集），用于添加时的联想。返回 [{ code, name }, ...]。"""
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        groups = db.get_fund_groups(user_id)
+        default_group = db.get_or_create_default_group(user_id)
+        if default_group:
+            groups = [default_group] + [g for g in groups if g.get('id') != default_group['id']]
+        default_gid = default_group['id'] if default_group else None
+        codes = set()
+        for g in groups:
+            for code in (g.get('fund_codes') or []):
+                codes.add(str(code))
+        fund_map = db.get_user_funds(user_id)
+        funds = []
+        for code in sorted(codes):
+            name = (fund_map.get(code) or {}).get('fund_name') or ('基金' + code)
+            funds.append({'code': code, 'name': name})
+        return jsonify({'success': True, 'funds': funds})
+    except Exception as e:
+        logger.error(f"获取默认页基金列表失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ---------- Fund Groups（自定义分组）API ----------
+@api_bp.route('/api/fund/groups', methods=['GET'])
+@login_required
+def api_fund_groups_list():
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        groups = db.get_fund_groups(user_id)
+        return jsonify({'success': True, 'groups': groups})
+    except Exception as e:
+        logger.error(f"获取分组列表失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@api_bp.route('/api/fund/groups', methods=['POST'])
+@login_required
+def api_fund_groups_create():
+    """新建分组：仅接受 name，fund_codes 固定为空，页面默认为空数据。"""
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        data = request.json or {}
+        name = (data.get('name') or '').strip()
+        success, message, group_id = db.create_fund_group(user_id, name)
+        if success:
+            return jsonify({'success': True, 'message': message, 'group_id': group_id})
+        return jsonify({'success': False, 'message': message}), 400
+    except Exception as e:
+        logger.error(f"创建分组失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@api_bp.route('/api/fund/groups/<int:group_id>', methods=['GET'])
+@login_required
+def api_fund_group_get(group_id):
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        group = db.get_fund_group(user_id, group_id)
+        if not group:
+            return jsonify({'success': False, 'message': '分组不存在'}), 404
+        return jsonify({'success': True, 'group': group})
+    except Exception as e:
+        logger.error(f"获取分组失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@api_bp.route('/api/fund/groups/<int:group_id>', methods=['PUT'])
+@login_required
+def api_fund_group_update(group_id):
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        data = request.json or {}
+        name = data.get('name')
+        fund_codes = data.get('fund_codes')
+        if name is None and fund_codes is None:
+            return jsonify({'success': False, 'message': '请提供 name 或 fund_codes'}), 400
+        success, message = db.update_fund_group(user_id, group_id, name=name, fund_codes=fund_codes)
+        if success:
+            return jsonify({'success': True, 'message': message})
+        return jsonify({'success': False, 'message': message}), 400
+    except Exception as e:
+        logger.error(f"更新分组失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@api_bp.route('/api/fund/groups/<int:group_id>', methods=['DELETE'])
+@login_required
+def api_fund_group_delete(group_id):
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        success, message = db.delete_fund_group(user_id, group_id)
+        if success:
+            return jsonify({'success': True, 'message': message})
+        return jsonify({'success': False, 'message': message}), 400
+    except Exception as e:
+        logger.error(f"删除分组失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@api_bp.route('/api/fund/groups/<int:group_id>/funds', methods=['POST'])
+@login_required
+def api_fund_group_add_fund(group_id):
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        data = request.json or {}
+        code = (data.get('code') or data.get('fund_code') or '').strip()
+        if not code:
+            return jsonify({'success': False, 'message': '请提供基金代码'}), 400
+        fund_map = db.get_user_funds(user_id)
+        if code not in fund_map:
+            my_fund = get_get_lan_fund()(user_id)
+            my_fund.add_code(code)
+        success, message = db.add_fund_to_group(user_id, group_id, code)
+        if not success:
+            return jsonify({'success': False, 'message': message}), 400
+        default_gid = db.get_default_group_id(user_id)
+        if default_gid is not None and default_gid != group_id:
+            db.add_fund_to_group(user_id, default_gid, code)
+        return jsonify({'success': True, 'message': message})
+    except Exception as e:
+        logger.error(f"分组添加基金失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@api_bp.route('/api/fund/groups/<int:group_id>/funds/<code>', methods=['DELETE'])
+@login_required
+def api_fund_group_remove_fund(group_id, code):
+    db = get_db()
+    try:
+        user_id = get_current_user_id()
+        success, message = db.remove_fund_from_group(user_id, group_id, code)
+        if not success:
+            return jsonify({'success': False, 'message': message}), 400
+        default_gid = db.get_default_group_id(user_id)
+        if default_gid is not None and default_gid != group_id:
+            db.remove_fund_from_group(user_id, default_gid, code)
+        return jsonify({'success': True, 'message': message})
+    except Exception as e:
+        logger.error(f"分组移除基金失败: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
