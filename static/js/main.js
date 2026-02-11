@@ -306,8 +306,8 @@
                        style="width: 18px; height: 18px; cursor: pointer;" onclick="event.stopPropagation(); toggleFundSelectionByCheckbox('${fund.code}', this)">
                 <div style="flex: 1;">
                     <div style="font-weight: 600;">${fund.code} - ${fund.name}</div>
-                    ${(fund.shares || 0) > 0 ? '<span style="color: #8b949e; font-size: 12px;">持仓</span>' : ''}
-                    ${fund.sectors && fund.sectors.length > 0 ? `<span style="color: #8b949e; font-size: 12px;"> 🏷️ ${fund.sectors.join(', ')}</span>` : ''}
+                    ${(fund.shares || 0) > 0 ? '<span style="color: #8b949e; font-size: var(--font-size-sm);">持仓</span>' : ''}
+                    ${fund.sectors && fund.sectors.length > 0 ? `<span style="color: #8b949e; font-size: var(--font-size-sm);"> 🏷️ ${fund.sectors.join(', ')}</span>` : ''}
                 </div>
             </div>
         `).join('');
@@ -990,8 +990,8 @@
                                 <td class="${actColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}${Math.abs(fund.actualGainPct).toFixed(2)}%</td>
                                 <td class="sensitive-value ${cumColor === '#f44336' ? 'positive' : 'negative'}" style="padding: 10px; text-align: center; vertical-align: middle; font-family: var(--font-mono); color: ${cumColor}; font-weight: 500;"><span class="real-value">${cumSign}¥${Math.abs(fund.cumulativeReturn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span><span class="hidden-value">****</span></td>
                                 <td style="padding: 10px; text-align: center; vertical-align: middle;">
-                                    <button type="button" class="btn-add-position" onclick="openAddPositionModal('${fund.code}')" style="margin-right: 6px; padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--accent); background: rgba(59, 130, 246, 0.15); color: var(--accent); cursor: pointer;">加仓</button>
-                                    <button type="button" class="btn-reduce-position" onclick="openReducePositionModal('${fund.code}')" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.15); color: var(--text-main); cursor: pointer;">减仓</button>
+                                    <button type="button" class="btn-add-position" onclick="openAddPositionModal('${fund.code}')" style="margin-right: 6px; padding: 4px 10px; font-size: var(--font-size-sm); border-radius: 6px; border: 1px solid var(--accent); background: rgba(59, 130, 246, 0.15); color: var(--accent); cursor: pointer;">加仓</button>
+                                    <button type="button" class="btn-reduce-position" onclick="openReducePositionModal('${fund.code}')" style="padding: 4px 10px; font-size: var(--font-size-sm); border-radius: 6px; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.15); color: var(--text-main); cursor: pointer;">减仓</button>
                                 </td>
                             </tr>
                         `;
@@ -1126,6 +1126,103 @@
                 calculatePositionSummary();
             }
         }
+
+        // 基金详情弹窗（点击自选基金名称打开，样式参考：估值时间、单位净值、持仓金额、估值涨跌幅、当日盈亏、持有收益、前10重仓）
+        function openFundDetailModal(fundCode, row) {
+            const modal = document.getElementById('fundDetailModal');
+            if (!modal) return;
+            const cells = row && row.querySelectorAll('td');
+            const nameEl = document.getElementById('fundDetailName');
+            const codeEl = document.getElementById('fundDetailCode');
+            const estTimeEl = document.getElementById('fundDetailEstTime');
+            const netValEl = document.getElementById('fundDetailNetValue');
+            const estNetValEl = document.getElementById('fundDetailEstNetValue');
+            const positionEl = document.getElementById('fundDetailPosition');
+            const estPctEl = document.getElementById('fundDetailEstPct');
+            const dailyPnlEl = document.getElementById('fundDetailDailyPnl');
+            const cumulativeEl = document.getElementById('fundDetailCumulative');
+            const holdingsList = document.getElementById('fundDetailHoldingsList');
+            const holdingsPlaceholder = document.getElementById('fundDetailHoldingsPlaceholder');
+            if (!nameEl || !codeEl) return;
+
+            const redCls = '#ef4444';
+            const greenCls = '#10b981';
+            function fmtPct(v) { return (v >= 0 ? '+' : '') + (typeof v === 'number' ? v.toFixed(2) : v) + '%'; }
+            function fmtMoney(v) { return '¥' + (typeof v === 'number' ? Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : v); }
+
+            codeEl.textContent = '#' + (fundCode || '—');
+            const detail = (window.fundDetailsData || []).find(function(f) { return f.code === fundCode; });
+            if (cells && cells.length >= 6) {
+                const rawName = cells[1].textContent.trim();
+                nameEl.textContent = rawName || '—';
+                estTimeEl.textContent = (window.beijingTimeInfo && (window.beijingTimeInfo.date + ' ' + window.beijingTimeInfo.time)) || (cells[2] ? cells[2].textContent.trim() : '—');
+                const netValText = cells[3].textContent.trim();
+                const netMatch = netValText.match(/^([0-9.]+)/);
+                const netValNum = netMatch ? parseFloat(netMatch[1]) : null;
+                if (netValEl) netValEl.textContent = netValNum != null ? netValNum.toFixed(4) : netValText || '—';
+                if (estNetValEl) estNetValEl.textContent = netValNum != null ? netValNum.toFixed(4) : '—';
+                const estPctText = cells[4].textContent.trim();
+                const estPctNum = estPctText !== 'N/A' ? parseFloat(estPctText.replace('%', '')) : null;
+                if (estPctEl) {
+                    estPctEl.textContent = estPctNum != null ? fmtPct(estPctNum) : '—';
+                    estPctEl.style.color = estPctNum != null ? (estPctNum >= 0 ? redCls : greenCls) : '';
+                }
+                const posReal = positionEl && positionEl.querySelector('.real-value');
+                if (detail && posReal) {
+                    const amt = detail.positionAmount != null ? detail.positionAmount : detail.positionValue;
+                    posReal.textContent = amt != null ? fmtMoney(amt) : '—';
+                } else if (posReal) posReal.textContent = '—';
+                if (detail) {
+                    const dailyPnl = detail.actualGain != null ? detail.actualGain : (detail.estimatedGain != null ? detail.estimatedGain : null);
+                    if (dailyPnlEl) {
+                        dailyPnlEl.textContent = dailyPnl != null ? (dailyPnl >= 0 ? '+' : '-') + fmtMoney(dailyPnl) : '—';
+                        dailyPnlEl.style.color = dailyPnl != null ? (dailyPnl >= 0 ? redCls : greenCls) : '';
+                    }
+                    const cum = detail.cumulativeReturn;
+                    if (cumulativeEl) {
+                        cumulativeEl.textContent = cum != null ? (cum >= 0 ? '+' : '-') + fmtMoney(cum) : '—';
+                        cumulativeEl.style.color = cum != null ? (cum >= 0 ? redCls : greenCls) : '';
+                    }
+                } else {
+                    if (dailyPnlEl) { dailyPnlEl.textContent = '—'; dailyPnlEl.style.color = ''; }
+                    if (cumulativeEl) { cumulativeEl.textContent = '—'; cumulativeEl.style.color = ''; }
+                }
+            } else {
+                nameEl.textContent = '—';
+                estTimeEl.textContent = '—';
+                if (netValEl) netValEl.textContent = '—';
+                if (estNetValEl) estNetValEl.textContent = '—';
+                if (positionEl) { const p = positionEl.querySelector('.real-value'); if (p) p.textContent = '—'; }
+                if (estPctEl) { estPctEl.textContent = '—'; estPctEl.style.color = ''; }
+                if (dailyPnlEl) { dailyPnlEl.textContent = '—'; dailyPnlEl.style.color = ''; }
+                if (cumulativeEl) { cumulativeEl.textContent = '—'; cumulativeEl.style.color = ''; }
+            }
+            if (holdingsList && holdingsPlaceholder) {
+                holdingsPlaceholder.style.display = 'block';
+            }
+            modal.style.display = 'flex';
+        }
+        function closeFundDetailModal() {
+            const modal = document.getElementById('fundDetailModal');
+            if (modal) modal.style.display = 'none';
+        }
+        window.openFundDetailModal = openFundDetailModal;
+        window.closeFundDetailModal = closeFundDetailModal;
+        (function bindFundDetailClose() {
+            var closeBtn = document.getElementById('fundDetailCloseBtn');
+            if (closeBtn) closeBtn.addEventListener('click', closeFundDetailModal);
+            else setTimeout(bindFundDetailClose, 100);
+        })();
+        document.body.addEventListener('click', function(e) {
+            var td = e.target && e.target.closest && e.target.closest('.style-table tbody tr td:nth-child(2)');
+            if (!td) return;
+            var row = td.closest('tr');
+            if (!row) return;
+            var cells = row.querySelectorAll('td');
+            if (cells.length < 6) return;
+            var code = cells[0].textContent.trim();
+            if (code) openFundDetailModal(code, row);
+        });
 
         // 累计收益修正弹窗（与其它弹窗统一用 classList 控制显隐）
         function openCumulativeCorrectionModal() {
@@ -1425,11 +1522,11 @@
                 const week = dayNames[dt.getDay()];
                 const dateStr = String(m).padStart(2, '0') + '月' + String(day).padStart(2, '0') + '日(' + week + ')';
                 if (d === 0) {
-                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
-                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: var(--font-size-base); cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: var(--font-size-base); cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
                 } else {
-                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
-                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: var(--font-size-base); cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
+                    html += '<div class="add-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: var(--font-size-base); cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
                 }
             }
             optionsEl.innerHTML = html;
@@ -1595,8 +1692,8 @@
                 const ymd = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
                 const week = dayNames[dt.getDay()];
                 const dateStr = String(m).padStart(2, '0') + '月' + String(day).padStart(2, '0') + '日(' + week + ')';
-                html += '<div class="reduce-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
-                html += '<div class="reduce-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
+                html += '<div class="reduce-position-time-option" data-date="' + ymd + '" data-period="before15" style="padding: 8px 12px; font-size: var(--font-size-base); cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点前</div>';
+                html += '<div class="reduce-position-time-option" data-date="' + ymd + '" data-period="after15" style="padding: 8px 12px; font-size: var(--font-size-base); cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main);">' + dateStr + ' 下午3点后</div>';
             }
             optionsEl.innerHTML = html;
             optionsEl.querySelectorAll('.reduce-position-time-option').forEach(el => {
@@ -2145,7 +2242,7 @@
             const container = document.getElementById('showoffFundsList');
 
             if (!funds || funds.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.4); font-size: 13px;">暂无数据</div>';
+                container.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.4); font-size: var(--font-size-base);">暂无数据</div>';
                 return;
             }
 

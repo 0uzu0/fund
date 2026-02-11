@@ -4,8 +4,11 @@ os.makedirs("cache", exist_ok=True)
 
 import importlib
 import json
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None  # Python < 3.9 or no tzdata
 
 import urllib3
 from dotenv import load_dotenv
@@ -598,54 +601,28 @@ def api_fund_shares():
         return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
 
 
+def _beijing_now():
+    """获取当前北京时间。优先 ZoneInfo('Asia/Shanghai')，不可用时用 UTC+8。"""
+    if ZoneInfo is not None:
+        try:
+            return datetime.now(ZoneInfo('Asia/Shanghai'))
+        except Exception:
+            pass
+    return datetime.now(timezone.utc) + timedelta(hours=8)
+
+
 @app.route('/api/time/beijing', methods=['GET'])
 def api_time_beijing():
-    """获取当前北京时间（优先从互联网时间接口获取，失败则用服务器时区）。用于 0 点后 9:30 前清零预估/今日涨幅及统一当前时间显示。"""
-    try:
-        now_dt = None
-        try:
-            http = urllib3.PoolManager(timeout=2.0)
-            r = http.request('GET', 'https://worldtimeapi.org/api/timezone/Asia/Shanghai')
-            if r.status == 200:
-                data = json.loads(r.data.decode('utf-8'))
-                # 返回格式 "2025-02-11T09:25:00.123456+08:00"
-                dt_str = data.get('datetime') or data.get('utc_datetime')
-                if dt_str:
-                    now_dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
-                    if now_dt.tzinfo is None:
-                        now_dt = now_dt.replace(tzinfo=ZoneInfo('Asia/Shanghai'))
-                elif isinstance(data.get('unixtime'), (int, float)):
-                    now_dt = datetime.fromtimestamp(int(data['unixtime']), tz=ZoneInfo('Asia/Shanghai'))
-        except Exception as e:
-            logger.debug(f"世界时间 API 不可用，使用服务器时间: {e}")
-        if now_dt is None:
-            now_dt = datetime.now(ZoneInfo('Asia/Shanghai'))
-        date_str = now_dt.strftime('%Y-%m-%d')
-        time_str = now_dt.strftime('%H:%M:%S')
-        hour, minute = now_dt.hour, now_dt.minute
-        is_before_930 = hour < 9 or (hour == 9 and minute < 30)
-        return jsonify({
-            'datetime': now_dt.isoformat(),
-            'date': date_str,
-            'time': time_str,
-            'hour': hour,
-            'minute': minute,
-            'is_before_930': is_before_930,
-        })
-    except Exception as e:
-        logger.warning(f"获取北京时间失败: {e}")
-        try:
-            now_dt = datetime.now(ZoneInfo('Asia/Shanghai'))
-        except Exception:
-            now_dt = datetime.now()
-        return jsonify({
-            'datetime': now_dt.isoformat() if now_dt.tzinfo else (now_dt.replace(tzinfo=ZoneInfo('Asia/Shanghai')).isoformat()),
-            'date': now_dt.strftime('%Y-%m-%d'),
-            'time': now_dt.strftime('%H:%M:%S'),
-            'hour': now_dt.hour,
-            'minute': now_dt.minute,
-            'is_before_930': now_dt.hour < 9 or (now_dt.hour == 9 and now_dt.minute < 30),
-        })
+    """获取当前北京时间（从宿主机本地时间，ZoneInfo 或 UTC+8）。用于 0 点后 9:30 前清零预估/今日涨幅及统一当前时间显示。"""
+    now_dt = _beijing_now()
+    return jsonify({
+        'datetime': now_dt.isoformat(),
+        'date': now_dt.strftime('%Y-%m-%d'),
+        'time': now_dt.strftime('%H:%M:%S'),
+        'hour': now_dt.hour,
+        'minute': now_dt.minute,
+        'is_before_930': now_dt.hour < 9 or (now_dt.hour == 9 and now_dt.minute < 30),
+    })
 
 
 @app.route('/api/fund/data', methods=['GET'])

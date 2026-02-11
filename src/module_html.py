@@ -15,7 +15,7 @@ def enhance_fund_tab_content(content, shares_map=None):
             <button class="btn btn-secondary" onclick="downloadFundMap()" style="padding: 8px 16px;">📥 导出基金列表</button>
             <input type="file" id="uploadFile" accept=".json" style="display:none" onchange="uploadFundMap(this.files[0])">
             <button class="btn btn-secondary" onclick="document.getElementById('uploadFile').click()" style="padding: 8px 16px;">📤 导入基金列表</button>
-            <span style="color: #f59e0b; font-size: 13px; margin-left: 10px;">
+            <span style="color: #f59e0b; font-size: var(--font-size-base); margin-left: 10px;">
                 <span style="color: #f59e0b;">⚠️</span> 导入/导出为覆盖性操作，直接应用最新配置（非累加）
             </span>
         </div>
@@ -24,48 +24,48 @@ def enhance_fund_tab_content(content, shares_map=None):
     # 添加持仓统计区域（将通过JavaScript动态填充）
     position_summary = """
         <div id="positionSummary" class="position-summary" style="display: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0 0 15px 0; font-size: var(--font-size-xl); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;">
                 💰 持仓统计
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button id="showoffBtn" onclick="openShowoffCard()"
                             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                                    border: none; border-radius: 20px; padding: 6px 16px;
-                                   color: white; font-size: 14px; font-weight: 600;
+                                   color: white; font-size: var(--font-size-md); font-weight: 600;
                                    cursor: pointer; display: flex; align-items: center; gap: 6px;
                                    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
                                    transition: all 0.3s ease; white-space: nowrap;">
                         ✨ 一键炫耀
                     </button>
-                    <span id="toggleSensitiveValues" style="cursor: pointer; font-size: 18px; user-select: none;" title="显示 / 隐藏 收益明细">😀</span>
+                    <span id="toggleSensitiveValues" style="cursor: pointer; font-size: var(--font-size-xl); user-select: none;" title="显示 / 隐藏 收益明细">😀</span>
                 </div>
             </h3>
             <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="stat-item" style="text-align: center;">
-                    <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 5px;">总持仓金额</div>
-                    <div id="totalValue" class="sensitive-value" style="font-size: 24px; font-weight: bold; color: var(--text-main); text-align: center;">
+                    <div style="font-size: var(--font-size-sm); color: var(--text-dim); margin-bottom: 5px;">总持仓金额</div>
+                    <div id="totalValue" class="sensitive-value" style="font-size: var(--font-size-3xl); font-weight: bold; color: var(--text-main); text-align: center;">
                         <span class="real-value">¥0.00</span><span class="hidden-value">****</span>
                     </div>
                 </div>
                 <div class="stat-item" style="text-align: center;">
-                    <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 5px;">今日预估涨跌</div>
-                    <div id="estimatedGain" style="font-size: 24px; font-weight: bold; white-space: nowrap; color: var(--text-main); text-align: center;">
+                    <div style="font-size: var(--font-size-sm); color: var(--text-dim); margin-bottom: 5px;">今日预估涨跌</div>
+                    <div id="estimatedGain" style="font-size: var(--font-size-3xl); font-weight: bold; white-space: nowrap; color: var(--text-main); text-align: center;">
                         <span class="sensitive-value"><span class="real-value">¥0.00</span><span class="hidden-value">****</span></span><span id="estimatedGainPct"> (+0.00%)</span>
                     </div>
                 </div>
                 <div class="stat-item" style="text-align: center;">
-                    <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 5px;">今日实际涨跌(已结算部分)</div>
-                    <div id="actualGain" style="font-size: 24px; font-weight: bold; white-space: nowrap; color: var(--text-main); text-align: center;">
+                    <div style="font-size: var(--font-size-sm); color: var(--text-dim); margin-bottom: 5px;">今日实际涨跌(已结算部分)</div>
+                    <div id="actualGain" style="font-size: var(--font-size-3xl); font-weight: bold; white-space: nowrap; color: var(--text-main); text-align: center;">
                         <span class="sensitive-value"><span class="real-value">¥0.00</span><span class="hidden-value">****</span></span><span id="actualGainPct"> (+0.00%)</span>
                     </div>
                 </div>
                 <div class="stat-item" style="text-align: center;">
-                    <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 5px;">累计收益</div>
+                    <div style="font-size: var(--font-size-sm); color: var(--text-dim); margin-bottom: 5px;">累计收益</div>
                     <div style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
-                        <div id="cumulativeGain" style="font-size: 24px; font-weight: bold; white-space: nowrap; color: var(--text-main);">
+                        <div id="cumulativeGain" style="font-size: var(--font-size-3xl); font-weight: bold; white-space: nowrap; color: var(--text-main);">
                             <span class="sensitive-value"><span class="real-value">¥0.00</span><span class="hidden-value">****</span></span>
                         </div>
                         <button type="button" id="cumulativeCorrectionBtn" onclick="openCumulativeCorrectionModal()" title="修正累计收益显示"
-                                style="font-size: 12px; padding: 2px 8px; color: var(--accent); background: transparent; border: 1px solid var(--accent); border-radius: 6px; cursor: pointer;">修正</button>
+                                style="font-size: var(--font-size-sm); padding: 2px 8px; color: var(--accent); background: transparent; border: 1px solid var(--accent); border-radius: 6px; cursor: pointer;">修正</button>
                     </div>
                 </div>
             </div>
@@ -75,9 +75,9 @@ def enhance_fund_tab_content(content, shares_map=None):
         <div id="cumulativeCorrectionModal" class="cumulative-correction-modal" onclick="closeCumulativeCorrectionModal()">
             <div class="cumulative-correction-dialog" onclick="event.stopPropagation()">
                 <h3 class="sector-modal-header" style="margin: 0 0 16px 0;">修正累计收益</h3>
-                <p style="font-size: 13px; color: var(--text-dim); margin: 0 0 12px 0;">显示累计收益 = 现有累计收益 − 修正金额</p>
+                <p style="font-size: var(--font-size-base); color: var(--text-dim); margin: 0 0 12px 0;">显示累计收益 = 现有累计收益 − 修正金额</p>
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px;">修正金额（元）</label>
+                    <label style="display: block; font-size: var(--font-size-base); color: var(--text-dim); margin-bottom: 6px;">修正金额（元）</label>
                     <input type="number" id="cumulativeCorrectionInput" step="0.01" placeholder="0" class="sector-modal-search" style="margin-bottom: 0;">
                 </div>
                 <div class="sector-modal-footer" style="margin-top: 16px;">
@@ -88,9 +88,9 @@ def enhance_fund_tab_content(content, shares_map=None):
         </div>
 
         <div id="fundDetailsSummary" class="fund-details-summary" style="display: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: var(--text-main);">📊 持有基金</h3>
+            <h3 style="margin: 0 0 15px 0; font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);">📊 持有基金</h3>
             <div style="overflow-x: auto;">
-                <table id="fundDetailsTable" style="width: 100%; min-width: 700px; border-collapse: collapse; font-size: 13px; table-layout: auto; white-space: nowrap;">
+                <table id="fundDetailsTable" style="width: 100%; min-width: 700px; border-collapse: collapse; table-layout: auto; white-space: nowrap;">
                     <thead>
                         <tr style="background: rgba(59, 130, 246, 0.1);">
                             <th style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; color: var(--text-dim); font-weight: 500;">基金代码</th>
@@ -107,6 +107,41 @@ def enhance_fund_tab_content(content, shares_map=None):
                     <tbody id="fundDetailsTableBody">
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- 基金详情弹窗（点击自选基金名称打开） -->
+        <style>.style-table tbody td:nth-child(2){ cursor: pointer; } .style-table tbody td:nth-child(2):hover{ color: var(--accent); }</style>
+        <div id="fundDetailModal" class="fund-detail-modal" style="display: none; position: fixed; inset: 0; z-index: 10003; align-items: center; justify-content: center; background: rgba(0,0,0,0.5);" onclick="if(event.target===this) window.closeFundDetailModal && window.closeFundDetailModal()">
+            <div class="fund-detail-dialog" onclick="event.stopPropagation()" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; max-width: 480px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 20px; color: var(--text-main);">
+                <div class="fund-detail-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <div class="fund-detail-name" style="font-size: var(--font-size-xl); font-weight: 700; color: var(--text-main); line-height: 1.3;" id="fundDetailName">—</div>
+                        <div class="fund-detail-code" style="font-size: var(--font-size-base); color: var(--text-dim); margin-top: 4px;" id="fundDetailCode">—</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: var(--font-size-sm); color: var(--text-dim);">估值时间</span>
+                        <span id="fundDetailEstTime" style="font-size: var(--font-size-base);">—</span>
+                        <button type="button" id="fundDetailCloseBtn" title="关闭" style="background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; font-size: var(--font-size-lg);">✕</button>
+                    </div>
+                </div>
+                <div class="fund-detail-metrics" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 20px; font-size: var(--font-size-base);">
+                    <div><span style="color: var(--text-dim);">单位净值</span><div id="fundDetailNetValue" style="font-weight: 600; margin-top: 2px;">—</div></div>
+                    <div><span style="color: var(--text-dim);">估值净值</span><div id="fundDetailEstNetValue" style="font-weight: 600; margin-top: 2px;">—</div></div>
+                    <div><span style="color: var(--text-dim);">持仓金额</span><div id="fundDetailPosition" class="sensitive-value" style="font-weight: 600; margin-top: 2px;"><span class="real-value">—</span><span class="hidden-value">****</span></div></div>
+                    <div><span style="color: var(--text-dim);">估值涨跌幅</span><div id="fundDetailEstPct" style="font-weight: 600; margin-top: 2px;">—</div></div>
+                    <div><span style="color: var(--text-dim);">当日盈亏</span><div id="fundDetailDailyPnl" style="font-weight: 600; margin-top: 2px;">—</div></div>
+                    <div><span style="color: var(--text-dim);">持有收益</span><div id="fundDetailCumulative" style="font-weight: 600; margin-top: 2px;">—</div></div>
+                </div>
+                <div class="fund-detail-holdings" style="border-top: 1px solid var(--border); padding-top: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-size: var(--font-size-md); font-weight: 600;">前10重仓股票</span>
+                        <span style="font-size: var(--font-size-sm); color: var(--text-dim);">涨跌幅 / 占比</span>
+                    </div>
+                    <div id="fundDetailHoldingsList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: var(--font-size-base);">
+                        <div style="grid-column: 1 / -1; color: var(--text-dim);" id="fundDetailHoldingsPlaceholder">暂无数据</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -222,7 +257,7 @@ def enhance_fund_tab_content(content, shares_map=None):
             # 在行末添加份额设置按钮（在</tr>之前）- 去掉最后的</tr>，添加按钮后再加回；用 data-fund-code 便于事件委托
             row_with_shares = row_content[:-5] + f'''<td>
                 <button type="button" class="shares-button" id="sharesBtn_{fund_code}" data-fund-code="{fund_code}"
-                        style="padding: 6px 12px; background: {button_color}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s;">
+                        style="padding: 6px 12px; background: {button_color}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: var(--font-size-base); transition: all 0.2s;">
                     {button_text}
                 </button>
             </td></tr>'''
@@ -235,7 +270,7 @@ def enhance_fund_tab_content(content, shares_map=None):
     # 所有基金表格外加「自选基金」标题（与「持有基金」分基金涨跌明细样式一致）
     fund_list_section = '''
         <div class="fund-list-section" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: var(--text-main);">📊 自选基金</h3>
+            <h3 style="margin: 0 0 15px 0; font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);">📊 自选基金</h3>
             <div style="overflow-x: auto;">
 ''' + content + '''
             </div>
@@ -430,7 +465,7 @@ def generate_holdings_cards_html(fund_data_map):
         sectors = data.get('sectors', [])
 
         # Generate sector tags with icon and gray text (like delete sector popup)
-        sector_tags = f'<span style="color: #8b949e; font-size: 12px;"> 🏷️ {", ".join(sectors)}</span>' if sectors else ''
+        sector_tags = f'<span style="color: #8b949e; font-size: var(--font-size-sm);"> 🏷️ {", ".join(sectors)}</span>' if sectors else ''
 
         # Card HTML
         card_html = f"""
@@ -479,7 +514,7 @@ def generate_holdings_cards_html(fund_data_map):
                                data-code="{code}"
                                placeholder="0"
                                value=""
-                               style="width: 60px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; font-size: 11px; background: var(--card-bg); color: var(--text-main);"
+                               style="width: 60px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; font-size: var(--font-size-xs); background: var(--card-bg); color: var(--text-main);"
                                onchange="updateShares('{code}', this.value)">
                     </div>
                 </div>
@@ -654,13 +689,13 @@ def get_full_page_html_sidebar(tabs_data, username=None):
                     <label for="sharesModalHoldingUnits" style="display: block; margin-bottom: 8px; color: var(--text-main); font-weight: 500;">持有份额</label>
                     <input type="number" id="sharesModalHoldingUnits" step="0.01" min="0" placeholder="请输入持有份额"
                            oninput="if(window.updateSharesModalResult) window.updateSharesModalResult()"
-                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text-main);">
+                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: var(--font-size-md); background: var(--card-bg); color: var(--text-main);">
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label for="sharesModalCostPerUnit" style="display: block; margin-bottom: 8px; color: var(--text-main); font-weight: 500;">持仓成本（每份成本）</label>
                     <input type="number" id="sharesModalCostPerUnit" step="0.0001" min="0" placeholder="请输入每份成本"
                            oninput="if(window.updateSharesModalResult) window.updateSharesModalResult()"
-                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text-main);">
+                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: var(--font-size-md); background: var(--card-bg); color: var(--text-main);">
                 </div>
                 <div style="margin-bottom: 8px; padding: 10px; background: var(--border); border-radius: 6px;">
                     <strong id="sharesModalResult" style="display: block; color: var(--text-main); font-family: var(--font-mono);">0.00</strong>
@@ -678,43 +713,43 @@ def get_full_page_html_sidebar(tabs_data, username=None):
         <div class="sector-modal-content add-position-modal-content" style="max-width: 420px;">
             <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
                 <span>同步加仓</span>
-                <button type="button" onclick="closeAddPositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+                <button type="button" onclick="closeAddPositionModal()" style="background: none; border: none; font-size: var(--font-size-xl); color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
             </div>
             <div style="padding: 16px 20px;">
-                <div class="add-position-tip" style="display: none; background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">
+                <div class="add-position-tip" style="display: none; background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: var(--font-size-base);">
                     <span id="addPositionTipText"></span>
                     <button type="button" onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; cursor: pointer; color: #92400e;">×</button>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <div id="addPositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
-                    <div id="addPositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                    <div id="addPositionFundName" style="font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);"></div>
+                    <div id="addPositionFundCode" style="font-size: var(--font-size-sm); color: var(--text-dim); margin-top: 2px;"></div>
                 </div>
                 <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
-                    <span style="font-size: 13px; color: var(--text-dim);">最新净值</span><span id="addPositionNetValueDate" style="font-size: 12px; color: var(--text-dim); margin-left: 4px;"></span><span id="addPositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 6px;"></span>
-                    <span id="addPositionNetValuePct" style="font-size: 13px; margin-left: 6px;"></span>
+                    <span style="font-size: var(--font-size-base); color: var(--text-dim);">最新净值</span><span id="addPositionNetValueDate" style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 4px;"></span><span id="addPositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 6px;"></span>
+                    <span id="addPositionNetValuePct" style="font-size: var(--font-size-base); margin-left: 6px;"></span>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">同步加仓金额</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">同步加仓金额</label>
                     <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
                         <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
-                        <input type="number" id="addPositionAmount" step="0.01" min="0" placeholder="已买入金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateAddPositionFee) window.updateAddPositionFee()">
+                        <input type="number" id="addPositionAmount" step="0.01" min="0" placeholder="已买入金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);" oninput="if(window.updateAddPositionFee) window.updateAddPositionFee()">
                     </div>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">买入费率</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">买入费率</label>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0" checked style="margin-right: 4px;">0.0%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.1" style="margin-right: 4px;">0.1%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.15" style="margin-right: 4px;">0.15%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0" checked style="margin-right: 4px;">0.0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.1" style="margin-right: 4px;">0.1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.15" style="margin-right: 4px;">0.15%</label>
                     </div>
                 </div>
-                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                <div style="margin-bottom: 12px; font-size: var(--font-size-sm); color: var(--text-dim);">
                     估算手续费 <span id="addPositionFee">0.00</span> 元
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台买入时间</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台买入时间</label>
                     <div id="addPositionTimeDisplay" onclick="openAddPositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
-                        <span id="addPositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span id="addPositionTimeText" style="font-size: var(--font-size-md);">请选择时间</span>
                         <span style="color: var(--text-dim);">▼</span>
                     </div>
                 </div>
@@ -730,9 +765,9 @@ def get_full_page_html_sidebar(tabs_data, username=None):
     <div id="addPositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
         <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
-                <button type="button" onclick="closeAddPositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
-                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">加仓时间</span>
-                <button type="button" onclick="confirmAddPositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+                <button type="button" onclick="closeAddPositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: var(--font-size-lg);">加仓时间</span>
+                <button type="button" onclick="confirmAddPositionTime()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">确认</button>
             </div>
             <div id="addPositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;">
                 <!-- 选项由 JS 动态生成 -->
@@ -746,40 +781,40 @@ def get_full_page_html_sidebar(tabs_data, username=None):
         <div class="sector-modal-content" style="max-width: 420px;">
             <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
                 <span>同步减仓</span>
-                <button type="button" onclick="closeReducePositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+                <button type="button" onclick="closeReducePositionModal()" style="background: none; border: none; font-size: var(--font-size-xl); color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
             </div>
             <div style="padding: 16px 20px;">
                 <div style="margin-bottom: 12px;">
-                    <div id="reducePositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
-                    <div id="reducePositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                    <div id="reducePositionFundName" style="font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);"></div>
+                    <div id="reducePositionFundCode" style="font-size: var(--font-size-sm); color: var(--text-dim); margin-top: 2px;"></div>
                 </div>
                 <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
-                    <span style="font-size: 13px; color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
-                    <span style="font-size: 12px; color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
+                    <span style="font-size: var(--font-size-base); color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
+                    <span style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
                     <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
                         <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
-                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
+                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
                     </div>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
                     </div>
                 </div>
-                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                <div style="margin-bottom: 12px; font-size: var(--font-size-sm); color: var(--text-dim);">
                     估算手续费 <span id="reducePositionFee">0.00</span> 元
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
                     <div id="reducePositionTimeDisplay" onclick="openReducePositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
-                        <span id="reducePositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span id="reducePositionTimeText" style="font-size: var(--font-size-md);">请选择时间</span>
                         <span style="color: var(--text-dim);">▼</span>
                     </div>
                 </div>
@@ -793,9 +828,9 @@ def get_full_page_html_sidebar(tabs_data, username=None):
     <div id="reducePositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
         <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
-                <button type="button" onclick="closeReducePositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
-                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">卖出时间</span>
-                <button type="button" onclick="confirmReducePositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+                <button type="button" onclick="closeReducePositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: var(--font-size-lg);">卖出时间</span>
+                <button type="button" onclick="confirmReducePositionTime()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">确认</button>
             </div>
             <div id="reducePositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;"></div>
         </div>
@@ -1219,7 +1254,7 @@ def generate_fund_row_html(fund_code, fund_data, is_held=True):
     if sectors:
         # Display sectors with icon and gray text (like delete sector popup style)
         safe_sectors = html.escape(', '.join(str(s) for s in sectors))
-        sector_tags += f'<span style="color: #8b949e; font-size: 12px;"> 🏷️ {safe_sectors}</span>'
+        sector_tags += f'<span style="color: #8b949e; font-size: var(--font-size-sm);"> 🏷️ {safe_sectors}</span>'
 
     # Shares input (only for held funds) + 修改按钮打开份额弹窗
     shares_html = ''
@@ -1230,7 +1265,7 @@ def generate_fund_row_html(fund_code, fund_data, is_held=True):
                value="{shares}" step="0.01" min="0"
                onchange="if(window.updateShares) window.updateShares('{safe_code}', this.value)">
         <button type="button" class="shares-button" data-fund-code="{safe_code}" title="修改持仓份额与成本"
-                style="margin-left:6px;padding:4px 8px;font-size:12px;border-radius:4px;cursor:pointer;background:var(--accent);color:#fff;border:none;">修改</button>
+                style="margin-left:6px;padding:4px 8px;font-size: var(--font-size-sm);border-radius:4px;cursor:pointer;background:var(--accent);color:#fff;border:none;">修改</button>
       </div>'''
 
     return f'''<div class="fund-row" data-code="{safe_code}">
@@ -1328,6 +1363,17 @@ def get_css_style():
             --down: #10b981;  /* 专业绿 */
             --font-mono: 'JetBrains Mono', 'Courier New', Consolas, monospace;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            /* 统一字体大小（与 style.css 一致） */
+            --font-size-xs: 11px;
+            --font-size-sm: 12px;
+            --font-size-base: 13px;
+            --font-size-md: 14px;
+            --font-size-lg: 16px;
+            --font-size-xl: 18px;
+            --font-size-2xl: 20px;
+            --font-size-3xl: 24px;
+            --font-size-4xl: 28px;
+            --font-size-5xl: 48px;
         }
 
         * {
@@ -1338,6 +1384,7 @@ def get_css_style():
 
         body {
             font-family: var(--font-family);
+            font-size: var(--font-size-md);
             background-color: var(--terminal-bg);
             color: var(--text-main);
             line-height: 1.5;
@@ -1359,7 +1406,7 @@ def get_css_style():
 
         .stat-group label {
             color: var(--text-dim);
-            font-size: 13px;
+            font-size: var(--font-size-base);
             display: block;
             margin-bottom: 8px;
             text-transform: uppercase;
@@ -1369,7 +1416,7 @@ def get_css_style():
 
         .stat-group .big-num {
             font-family: var(--font-mono);
-            font-size: 32px;
+            font-size: var(--font-size-4xl);
             font-weight: 700;
             line-height: 1.2;
             margin-bottom: 6px;
@@ -1384,7 +1431,7 @@ def get_css_style():
         }
 
         .stat-group .stat-change {
-            font-size: 14px;
+            font-size: var(--font-size-md);
             font-family: var(--font-mono);
             color: var(--text-dim);
         }
@@ -1430,7 +1477,7 @@ def get_css_style():
 
         .card-title {
             font-weight: 600;
-            font-size: 15px;
+            font-size: var(--font-size-lg);
             color: var(--text-main);
             margin-bottom: 4px;
         }
@@ -1438,7 +1485,7 @@ def get_css_style():
         .card-code {
             color: var(--text-dim);
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: var(--font-size-sm);
         }
 
         .card-code .tag {
@@ -1447,12 +1494,12 @@ def get_css_style():
             color: var(--accent);
             padding: 2px 6px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: var(--font-size-xs);
             margin-left: 6px;
         }
 
         .card-badge {
-            font-size: 20px;
+            font-size: var(--font-size-2xl);
             line-height: 1;
         }
 
@@ -1465,7 +1512,7 @@ def get_css_style():
 
         .est-pct {
             font-family: var(--font-mono);
-            font-size: 24px;
+            font-size: var(--font-size-3xl);
             font-weight: 700;
         }
 
@@ -1486,7 +1533,7 @@ def get_css_style():
         }
 
         .detail-item {
-            font-size: 12px;
+            font-size: var(--font-size-sm);
             color: var(--text-dim);
         }
 
@@ -1494,7 +1541,7 @@ def get_css_style():
             color: var(--text-main);
             font-family: var(--font-mono);
             display: block;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             margin-top: 4px;
         }
 
@@ -1650,7 +1697,7 @@ def get_css_style():
             width: 100%;
             min-width: max-content;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: var(--font-size-md);
             white-space: nowrap;
         }
 
@@ -1672,6 +1719,17 @@ def get_css_style():
             font-weight: 400;
             text-align: center;
             white-space: nowrap;
+        }
+
+        /* 持有基金与自选基金：数据统一字体（等宽）并比当前大一号 */
+        #fundDetailsSummary table,
+        #fundDetailsSummary table th,
+        #fundDetailsSummary table td,
+        .fund-list-section .style-table,
+        .fund-list-section .style-table th,
+        .fund-list-section .style-table td {
+            font-size: var(--font-size-lg);
+            font-family: var(--font-mono);
         }
 
         .style-table tbody tr:hover {
@@ -1756,7 +1814,7 @@ def get_css_style():
         /* Specific tweaks for small screens */
         @media (max-width: 768px) {
             body {
-                font-size: 14px;
+                font-size: var(--font-size-md);
             }
 
             /* Navbar */
@@ -1934,7 +1992,7 @@ def get_css_style():
             border-radius: 8px;
             color: white;
             cursor: pointer;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             font-weight: 600;
             transition: all 0.3s ease;
             display: inline-flex;
@@ -2025,7 +2083,7 @@ def get_css_style():
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: var(--font-size-base);
             transition: all 0.2s;
         }
 
@@ -2044,7 +2102,7 @@ def get_css_style():
             padding: 8px 12px;
             border: 1px solid var(--border);
             border-radius: 6px;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
             color: var(--text-main);
@@ -2063,12 +2121,12 @@ def get_css_style():
         .selected-info {
             margin-left: auto;
             color: var(--text-dim);
-            font-size: 14px;
+            font-size: var(--font-size-md);
         }
 
         .selected-info strong {
             color: var(--accent);
-            font-size: 16px;
+            font-size: var(--font-size-lg);
         }
 
         /* Checkbox styling */
@@ -2117,7 +2175,7 @@ def get_css_style():
         }
 
         .sector-modal-header {
-            font-size: 18px;
+            font-size: var(--font-size-xl);
             font-weight: 600;
             margin-bottom: 20px;
             color: var(--text-main);
@@ -2129,7 +2187,7 @@ def get_css_style():
             border: 1px solid var(--border);
             border-radius: 6px;
             margin-bottom: 16px;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             color: var(--text-main);
             background-color: var(--terminal-bg);
         }
@@ -2145,7 +2203,7 @@ def get_css_style():
         }
 
         .sector-category-header {
-            font-size: 14px;
+            font-size: var(--font-size-md);
             font-weight: 600;
             margin-bottom: 8px;
             color: var(--accent);
@@ -2172,7 +2230,7 @@ def get_css_style():
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
-            font-size: 13px;
+            font-size: var(--font-size-base);
             color: var(--text-main);
             background-color: var(--terminal-bg);
         }
@@ -2256,14 +2314,14 @@ def get_css_style():
         }
 
         .confirm-title {
-            font-size: 18px;
+            font-size: var(--font-size-xl);
             font-weight: 600;
             margin-bottom: 12px;
             color: var(--text-main);
         }
 
         .confirm-message {
-            font-size: 14px;
+            font-size: var(--font-size-md);
             color: var(--text-dim);
             margin-bottom: 20px;
             line-height: 1.5;
@@ -2879,8 +2937,8 @@ def get_javascript_code():
                        style="width: 18px; height: 18px; cursor: pointer;" onclick="event.stopPropagation();">
                 <div style="flex: 1;">
                     <div style="font-weight: 600;">${safeCode} - ${safeName}</div>
-                    ${(fund.shares || 0) > 0 ? '<span style="color: #8b949e; font-size: 12px;">持仓</span>' : ''}
-                    ${safeSectors ? `<span style="color: #8b949e; font-size: 12px;"> 🏷️ ${safeSectors}</span>` : ''}
+                    ${(fund.shares || 0) > 0 ? '<span style="color: #8b949e; font-size: var(--font-size-sm);">持仓</span>' : ''}
+                    ${safeSectors ? `<span style="color: #8b949e; font-size: var(--font-size-sm);"> 🏷️ ${safeSectors}</span>` : ''}
                 </div>
             </div>
             `;
@@ -3518,7 +3576,7 @@ def get_javascript_code():
         if (heldFundsData.length > 0) {
             const cardsHTML = heldFundsData.map(fund => {
                 const sectorTags = fund.sectors && fund.sectors.length > 0
-                    ? `<span style="color: #8b949e; font-size: 12px;"> 🏷️ ${fund.sectors.join(', ')}</span>`
+                    ? `<span style="color: #8b949e; font-size: var(--font-size-sm);"> 🏷️ ${fund.sectors.join(', ')}</span>`
                     : '';
                 const estClass = fund.estimatedGrowth >= 0 ? 'up' : 'down';
                 const dayClass = fund.dayGrowth >= 0 ? 'up' : 'down';
@@ -3534,7 +3592,7 @@ def get_javascript_code():
                     </div>
                     <div class="card-main-data">
                         <span class="est-pct ${estClass}">${fund.estimatedGrowth >= 0 ? '+' : '-'}${(fund.estimatedGrowth >= 0 ? fund.estimatedGrowth : Math.abs(fund.estimatedGrowth)).toFixed(2)}%</span>
-                        <span style="font-size: 12px; color: var(--text-dim)">实时估值</span>
+                        <span style="font-size: var(--font-size-sm); color: var(--text-dim)">实时估值</span>
                     </div>
                     <div class="card-details">
                         <div class="detail-item">持仓金额 <b>¥${fund.positionValue.toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></div>
@@ -3549,8 +3607,8 @@ def get_javascript_code():
             const holdingsSection = `
             <div style="margin-bottom: 24px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <div style="font-size: 18px; font-weight: 600; color: var(--text-main);">💎 核心持仓</div>
-                    <div style="font-size: 14px; color: var(--text-dim); font-family: var(--font-mono);">${heldFundsData.length} 只</div>
+                    <div style="font-size: var(--font-size-xl); font-weight: 600; color: var(--text-main);">💎 核心持仓</div>
+                    <div style="font-size: var(--font-size-md); color: var(--text-dim); font-family: var(--font-mono);">${heldFundsData.length} 只</div>
                 </div>
                 <div class="holdings-grid">
                     ${cardsHTML}
@@ -3644,8 +3702,8 @@ def get_javascript_code():
                                 <td style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; font-family: var(--font-mono); color: ${actColor}; font-weight: 500;">${actSign}${Math.abs(fund.actualGainPct).toFixed(2)}%</td>
                                 <td style="padding: 10px; text-align: center; white-space: nowrap; vertical-align: middle; font-family: var(--font-mono); color: ${cumColor}; font-weight: 500;">${cumSign}¥${Math.abs(fund.cumulativeReturn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                 <td style="padding: 10px; text-align: center; vertical-align: middle;">
-                                    <button type="button" class="btn-add-position" onclick="openAddPositionModal('${fund.code}')" style="margin-right: 6px; padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--accent); background: rgba(59, 130, 246, 0.15); color: var(--accent); cursor: pointer;">加仓</button>
-                                    <button type="button" class="btn-reduce-position" onclick="openReducePositionModal('${fund.code}')" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.15); color: var(--text-main); cursor: pointer;">减仓</button>
+                                    <button type="button" class="btn-add-position" onclick="openAddPositionModal('${fund.code}')" style="margin-right: 6px; padding: 4px 10px; font-size: var(--font-size-sm); border-radius: 6px; border: 1px solid var(--accent); background: rgba(59, 130, 246, 0.15); color: var(--accent); cursor: pointer;">加仓</button>
+                                    <button type="button" class="btn-reduce-position" onclick="openReducePositionModal('${fund.code}')" style="padding: 4px 10px; font-size: var(--font-size-sm); border-radius: 6px; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.15); color: var(--text-main); cursor: pointer;">减仓</button>
                                 </td>
                             </tr>
                         `;
@@ -5882,7 +5940,7 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
             color: var(--text-main);
             border: 1px solid var(--border);
             border-radius: 6px;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             line-height: 1.5;
             /* 隐藏原生datalist箭头 */
             appearance: none;
@@ -5917,7 +5975,7 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
             border-radius: 50%;
             background-color: #9ca3af;
             color: #fff !important;
-            font-size: 10px !important;
+            font-size: var(--font-size-xs) !important;
             font-weight: bold;
             cursor: pointer;
             opacity: 0;
@@ -5941,7 +5999,7 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-dim);
-            font-size: 10px;
+            font-size: var(--font-size-xs);
             pointer-events: none;
             transition: transform 0.2s ease;
         }}
@@ -5990,19 +6048,19 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
         /* 移动端优化 */
         @media (max-width: 768px) {{
             #fundSelector {{
-                font-size: 16px; /* 防止iOS自动缩放 */
+                font-size: var(--font-size-lg); /* 防止iOS自动缩放 */
                 padding: 8px 36px 8px 12px;
             }}
 
             .input-clear-btn {{
                 width: 20px;
                 height: 20px;
-                font-size: 12px;
+                font-size: var(--font-size-sm);
                 right: 26px;
             }}
 
             .fund-selector-dropdown-arrow {{
-                font-size: 12px;
+                font-size: var(--font-size-sm);
                 right: 10px;
             }}
 
@@ -6185,13 +6243,13 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                     <label for="sharesModalHoldingUnits" style="display: block; margin-bottom: 8px; color: var(--text-main); font-weight: 500;">持有份额</label>
                     <input type="number" id="sharesModalHoldingUnits" step="0.01" min="0" placeholder="请输入持有份额"
                            oninput="if(window.updateSharesModalResult) window.updateSharesModalResult()"
-                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text-main);">
+                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: var(--font-size-md); background: var(--card-bg); color: var(--text-main);">
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label for="sharesModalCostPerUnit" style="display: block; margin-bottom: 8px; color: var(--text-main); font-weight: 500;">持仓成本（每份成本）</label>
                     <input type="number" id="sharesModalCostPerUnit" step="0.0001" min="0" placeholder="请输入每份成本"
                            oninput="if(window.updateSharesModalResult) window.updateSharesModalResult()"
-                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text-main);">
+                           style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: var(--font-size-md); background: var(--card-bg); color: var(--text-main);">
                 </div>
                 <div style="margin-bottom: 8px; padding: 10px; background: var(--border); border-radius: 6px;">
                     <strong id="sharesModalResult" style="display: block; color: var(--text-main); font-family: var(--font-mono);">0.00</strong>
@@ -6209,43 +6267,43 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
         <div class="sector-modal-content add-position-modal-content" style="max-width: 420px;">
             <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
                 <span>同步加仓</span>
-                <button type="button" onclick="closeAddPositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+                <button type="button" onclick="closeAddPositionModal()" style="background: none; border: none; font-size: var(--font-size-xl); color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
             </div>
             <div style="padding: 16px 20px;">
-                <div class="add-position-tip" style="display: none; background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">
+                <div class="add-position-tip" style="display: none; background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: var(--font-size-base);">
                     <span id="addPositionTipText"></span>
                     <button type="button" onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; cursor: pointer; color: #92400e;">×</button>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <div id="addPositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
-                    <div id="addPositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                    <div id="addPositionFundName" style="font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);"></div>
+                    <div id="addPositionFundCode" style="font-size: var(--font-size-sm); color: var(--text-dim); margin-top: 2px;"></div>
                 </div>
                 <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
-                    <span style="font-size: 13px; color: var(--text-dim);">最新净值</span><span id="addPositionNetValueDate" style="font-size: 12px; color: var(--text-dim); margin-left: 4px;"></span><span id="addPositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 6px;"></span>
-                    <span id="addPositionNetValuePct" style="font-size: 13px; margin-left: 6px;"></span>
+                    <span style="font-size: var(--font-size-base); color: var(--text-dim);">最新净值</span><span id="addPositionNetValueDate" style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 4px;"></span><span id="addPositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 6px;"></span>
+                    <span id="addPositionNetValuePct" style="font-size: var(--font-size-base); margin-left: 6px;"></span>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">同步加仓金额</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">同步加仓金额</label>
                     <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
                         <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
-                        <input type="number" id="addPositionAmount" step="0.01" min="0" placeholder="已买入金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateAddPositionFee) window.updateAddPositionFee()">
+                        <input type="number" id="addPositionAmount" step="0.01" min="0" placeholder="已买入金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);" oninput="if(window.updateAddPositionFee) window.updateAddPositionFee()">
                     </div>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">买入费率</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">买入费率</label>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0" checked style="margin-right: 4px;">0.0%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.1" style="margin-right: 4px;">0.1%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.15" style="margin-right: 4px;">0.15%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0" checked style="margin-right: 4px;">0.0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.1" style="margin-right: 4px;">0.1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="addPositionFeeRate" value="0.15" style="margin-right: 4px;">0.15%</label>
                     </div>
                 </div>
-                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                <div style="margin-bottom: 12px; font-size: var(--font-size-sm); color: var(--text-dim);">
                     估算手续费 <span id="addPositionFee">0.00</span> 元
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台买入时间</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台买入时间</label>
                     <div id="addPositionTimeDisplay" onclick="openAddPositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
-                        <span id="addPositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span id="addPositionTimeText" style="font-size: var(--font-size-md);">请选择时间</span>
                         <span style="color: var(--text-dim);">▼</span>
                     </div>
                 </div>
@@ -6259,9 +6317,9 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
     <div id="addPositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
         <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
-                <button type="button" onclick="closeAddPositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
-                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">加仓时间</span>
-                <button type="button" onclick="confirmAddPositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+                <button type="button" onclick="closeAddPositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: var(--font-size-lg);">加仓时间</span>
+                <button type="button" onclick="confirmAddPositionTime()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">确认</button>
             </div>
             <div id="addPositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;"></div>
         </div>
@@ -6271,40 +6329,40 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
         <div class="sector-modal-content" style="max-width: 420px;">
             <div class="sector-modal-header" style="display: flex; align-items: center; justify-content: space-between;">
                 <span>同步减仓</span>
-                <button type="button" onclick="closeReducePositionModal()" style="background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
+                <button type="button" onclick="closeReducePositionModal()" style="background: none; border: none; font-size: var(--font-size-xl); color: var(--text-dim); cursor: pointer; padding: 0 4px;">×</button>
             </div>
             <div style="padding: 16px 20px;">
                 <div style="margin-bottom: 12px;">
-                    <div id="reducePositionFundName" style="font-size: 15px; font-weight: 600; color: var(--text-main);"></div>
-                    <div id="reducePositionFundCode" style="font-size: 12px; color: var(--text-dim); margin-top: 2px;"></div>
+                    <div id="reducePositionFundName" style="font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);"></div>
+                    <div id="reducePositionFundCode" style="font-size: var(--font-size-sm); color: var(--text-dim); margin-top: 2px;"></div>
                 </div>
                 <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
-                    <span style="font-size: 13px; color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
-                    <span style="font-size: 12px; color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
+                    <span style="font-size: var(--font-size-base); color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
+                    <span style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
                     <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
                         <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
-                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: 14px; color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
+                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
                     </div>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
                     </div>
                 </div>
-                <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-dim);">
+                <div style="margin-bottom: 12px; font-size: var(--font-size-sm); color: var(--text-dim);">
                     估算手续费 <span id="reducePositionFee">0.00</span> 元
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
                     <div id="reducePositionTimeDisplay" onclick="openReducePositionTimePicker()" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
-                        <span id="reducePositionTimeText" style="font-size: 14px;">请选择时间</span>
+                        <span id="reducePositionTimeText" style="font-size: var(--font-size-md);">请选择时间</span>
                         <span style="color: var(--text-dim);">▼</span>
                     </div>
                 </div>
@@ -6318,9 +6376,9 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
     <div id="reducePositionTimePicker" style="display: none; position: fixed; inset: 0; z-index: 10002; align-items: center; justify-content: center; pointer-events: none;">
         <div class="sector-modal-content" style="max-width: 378px; width: 90%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 0 18px 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;">
-                <button type="button" onclick="closeReducePositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">取消</button>
-                <span style="font-weight: 600; color: var(--text-main); font-size: 15px;">卖出时间</span>
-                <button type="button" onclick="confirmReducePositionTime()" style="background: none; border: none; color: var(--accent); font-size: 15px; cursor: pointer;">确认</button>
+                <button type="button" onclick="closeReducePositionTimePicker()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">取消</button>
+                <span style="font-weight: 600; color: var(--text-main); font-size: var(--font-size-lg);">卖出时间</span>
+                <button type="button" onclick="confirmReducePositionTime()" style="background: none; border: none; color: var(--accent); font-size: var(--font-size-lg); cursor: pointer;">确认</button>
             </div>
             <div id="reducePositionTimeOptions" style="overflow-y: auto; max-height: 320px; padding: 4px 0;"></div>
         </div>
@@ -6472,7 +6530,7 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                      onclick="selectFundForChart('${{fund.code}}')">
                     <div class="fund-code">${{fund.code}}</div>
                     <div class="fund-name">${{fund.name}}</div>
-                    ${{fund.is_default ? '<span style="color: #3b82f6; font-size: 12px;">⭐ 默认</span>' : ''}}
+                    ${{fund.is_default ? '<span style="color: #3b82f6; font-size: var(--font-size-sm);">⭐ 默认</span>' : ''}}
                 </div>
             `).join('');
         }}
@@ -6751,14 +6809,14 @@ def get_position_records_page_html(username=None, is_admin=False):
         .page-header p {{ font-size: 0.9rem; color: var(--text-dim); margin: 0; }}
         .records-table {{ width: 100%; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }}
         .records-table th, .records-table td {{ padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }}
-        .records-table th {{ background: rgba(59, 130, 246, 0.1); color: var(--text-dim); font-weight: 500; font-size: 13px; }}
+        .records-table th {{ background: rgba(59, 130, 246, 0.1); color: var(--text-dim); font-weight: 500; font-size: var(--font-size-base); }}
         .records-table tr:last-child td {{ border-bottom: none; }}
         .records-table tr:hover td {{ background: rgba(255,255,255,0.02); }}
         .record-op-add {{ color: #22c55e; font-weight: 500; }}
         .record-op-reduce {{ color: #f59e0b; font-weight: 500; }}
-        .btn-undo {{ padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); cursor: pointer; }}
+        .btn-undo {{ padding: 6px 12px; font-size: var(--font-size-sm); border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); cursor: pointer; }}
         .btn-undo:hover {{ background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: #ef4444; }}
-        .btn-undo-disabled {{ padding: 6px 12px; font-size: 12px; border-radius: 6px; color: var(--text-dim); cursor: not-allowed; }}
+        .btn-undo-disabled {{ padding: 6px 12px; font-size: var(--font-size-sm); border-radius: 6px; color: var(--text-dim); cursor: not-allowed; }}
         .records-empty {{ padding: 40px; text-align: center; color: var(--text-dim); }}
         .sidebar {{ width: 200px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border); }}
         .sidebar.collapsed {{ width: 60px; }}

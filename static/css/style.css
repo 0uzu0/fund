@@ -78,7 +78,7 @@
 .tab-loading p {
     margin-top: 20px;
     color: #8b949e;
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 500;
 }
 
@@ -120,7 +120,7 @@
     border-radius: 6px;
     background: rgba(22, 27, 34, 0.6);
     color: #e6edf3;
-    font-size: 14px;
+    font-size: var(--font-size-md);
 }
 
 .add-fund-input input::placeholder {
@@ -167,7 +167,7 @@
 
 .position-summary h3 {
     margin: 0 0 15px 0;
-    font-size: 18px;
+    font-size: var(--font-size-xl);
     font-weight: 600;
     position: relative;
     z-index: 1;
@@ -228,7 +228,7 @@
     }
 
     .position-summary h3 {
-        font-size: 16px;
+        font-size: var(--font-size-lg);
     }
 }
 
@@ -269,6 +269,17 @@
             --down-color: #52c41a;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
             --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            /* 统一字体大小（全项目使用，避免散落 px 不一致） */
+            --font-size-xs: 11px;
+            --font-size-sm: 12px;
+            --font-size-base: 13px;
+            --font-size-md: 14px;
+            --font-size-lg: 16px;
+            --font-size-xl: 18px;
+            --font-size-2xl: 20px;
+            --font-size-3xl: 24px;
+            --font-size-4xl: 28px;
+            --font-size-5xl: 48px;
         }
 
         * {
@@ -279,6 +290,7 @@
 
         body {
             font-family: var(--font-family);
+            font-size: var(--font-size-md);
             background-color: var(--gh-bg-secondary);
             color: var(--gh-text-primary);
             line-height: 1.5;
@@ -398,7 +410,21 @@
         .style-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: var(--font-size-md);
+        }
+
+        /* 持有基金与自选基金：数据统一字体（等宽）并比当前大一号 */
+        #fundDetailsSummary table,
+        .fund-list-section .style-table {
+            font-size: var(--font-size-lg);
+            font-family: var(--font-mono);
+        }
+        #fundDetailsSummary table th,
+        #fundDetailsSummary table td,
+        .fund-list-section .style-table th,
+        .fund-list-section .style-table td {
+            font-size: var(--font-size-lg);
+            font-family: var(--font-mono);
         }
 
         .style-table th {
@@ -420,6 +446,14 @@
             font-weight: 400;
             text-align: center;
             vertical-align: middle;
+        }
+
+        /* 持有基金与自选基金：基金名称列（第2列）字体大小统一（与整表调大一号一致） */
+        #fundDetailsTable th:nth-child(2),
+        #fundDetailsTable td:nth-child(2),
+        .style-table th:nth-child(2),
+        .style-table td:nth-child(2) {
+            font-size: var(--font-size-md);
         }
 
         .style-table tbody tr:hover {
@@ -574,7 +608,7 @@
         /* Specific tweaks for small screens */
         @media (max-width: 768px) {
             body {
-                font-size: 14px;
+                font-size: var(--font-size-md);
             }
 
             /* Navbar */
@@ -726,7 +760,7 @@
             border-radius: 8px;
             color: white;
             cursor: pointer;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             font-weight: 600;
             transition: all 0.3s ease;
             display: inline-flex;
@@ -797,7 +831,7 @@
             padding: 8px 12px;
             border: 1px solid var(--gh-border-primary);
             border-radius: 6px;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
             color: var(--gh-text-primary);
@@ -816,12 +850,12 @@
         .selected-info {
             margin-left: auto;
             color: var(--gh-text-secondary);
-            font-size: 14px;
+            font-size: var(--font-size-md);
         }
 
         .selected-info strong {
             color: var(--gh-accent-fg);
-            font-size: 16px;
+            font-size: var(--font-size-lg);
         }
 
         /* Checkbox styling */
@@ -879,7 +913,7 @@
         .cumulative-correction-dialog { min-width: 320px; max-width: 90%; }
 
         .sector-modal-header {
-            font-size: 18px;
+            font-size: var(--font-size-xl);
             font-weight: 600;
             margin-bottom: 20px;
             color: var(--gh-text-primary);
@@ -891,7 +925,7 @@
             border: 1px solid var(--gh-border-primary);
             border-radius: 6px;
             margin-bottom: 16px;
-            font-size: 14px;
+            font-size: var(--font-size-md);
             color: var(--gh-text-primary);
             background-color: var(--gh-bg-primary);
         }
@@ -907,7 +941,7 @@
         }
 
         .sector-category-header {
-            font-size: 14px;
+            font-size: var(--font-size-md);
             font-weight: 600;
             margin-bottom: 8px;
             color: var(--gh-accent-fg);
@@ -934,7 +968,7 @@
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
-            font-size: 13px;
+            font-size: var(--font-size-base);
             color: var(--gh-text-primary);
             background-color: var(--gh-bg-primary);
         }
@@ -992,14 +1026,14 @@
 
         /* Confirm Dialog 标题与按钮（遮罩与内容框已在上方统一） */
         .confirm-title {
-            font-size: 18px;
+            font-size: var(--font-size-xl);
             font-weight: 600;
             margin-bottom: 12px;
             color: var(--gh-text-primary);
         }
 
         .confirm-message {
-            font-size: 14px;
+            font-size: var(--font-size-md);
             color: var(--gh-text-secondary);
             margin-bottom: 20px;
             line-height: 1.5;
@@ -1107,7 +1141,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: white;
     transition: transform 0.2s ease;
     flex-shrink: 0;
@@ -1143,7 +1177,7 @@
 }
 
 .sidebar-icon {
-    font-size: 18px;
+    font-size: var(--font-size-xl);
     flex-shrink: 0;
 }
 
@@ -1428,7 +1462,7 @@
 }
 
 .sidebar-nav .sidebar-icon .icon-label {
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -1462,7 +1496,7 @@
     cursor: pointer;
     color: white;
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--font-size-base);
     transition: all 0.2s ease;
     flex-shrink: 0;
     display: flex;
@@ -1522,7 +1556,7 @@
 }
 
 .section-title {
-    font-size: 20px;
+    font-size: var(--font-size-2xl);
     font-weight: 600;
     color: var(--gh-text-primary);
     margin: 0;
@@ -1532,7 +1566,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
+    font-size: var(--font-size-base);
     color: var(--gh-text-secondary);
 }
 
@@ -1556,7 +1590,7 @@
 }
 
 .last-update {
-    font-size: 13px;
+    font-size: var(--font-size-base);
     color: var(--gh-text-tertiary);
     font-family: var(--font-mono);
 }
@@ -1579,7 +1613,7 @@
 }
 
 .summary-label {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--gh-text-secondary);
     margin-bottom: 8px;
     text-transform: uppercase;
@@ -1587,7 +1621,7 @@
 }
 
 .summary-value {
-    font-size: 24px;
+    font-size: var(--font-size-3xl);
     font-weight: 700;
     color: var(--gh-text-primary);
     font-family: var(--font-mono);
@@ -1595,7 +1629,7 @@
 }
 
 .summary-change {
-    font-size: 13px;
+    font-size: var(--font-size-base);
     font-family: var(--font-mono);
 }
 
@@ -1644,7 +1678,7 @@
 }
 
 .section-heading {
-    font-size: 18px;
+    font-size: var(--font-size-xl);
     font-weight: 600;
     color: var(--gh-text-primary);
     display: flex;
@@ -1654,7 +1688,7 @@
 }
 
 .heading-icon {
-    font-size: 20px;
+    font-size: var(--font-size-2xl);
 }
 
 .section-meta {
@@ -1664,7 +1698,7 @@
 }
 
 .fund-count {
-    font-size: 13px;
+    font-size: var(--font-size-base);
     color: var(--gh-text-secondary);
     font-family: var(--font-mono);
 }
@@ -1679,7 +1713,7 @@
     padding: 40px;
     text-align: center;
     color: var(--gh-text-tertiary);
-    font-size: 14px;
+    font-size: var(--font-size-md);
     background: var(--gh-bg-tertiary);
     border: 1px dashed var(--gh-border-primary);
     border-radius: 8px;
@@ -1721,14 +1755,14 @@
 }
 
 .fund-code {
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--gh-accent-fg);
     font-family: var(--font-mono);
 }
 
 .fund-name {
-    font-size: 14px;
+    font-size: var(--font-size-md);
     color: var(--gh-text-primary);
     font-weight: 500;
 }
@@ -1743,7 +1777,7 @@
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 500;
 }
 
@@ -1773,14 +1807,14 @@
 }
 
 .metric-label {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--gh-text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
 .metric-value {
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--gh-text-primary);
     font-family: var(--font-mono);
@@ -1793,7 +1827,7 @@
     border-radius: 4px;
     background: var(--gh-bg-primary);
     color: var(--gh-text-primary);
-    font-size: 13px;
+    font-size: var(--font-size-base);
     font-family: var(--font-mono);
 }
 
@@ -1884,7 +1918,7 @@
 
     .sidebar-nav .sidebar-icon .icon-label,
     .sidebar-nav.expanded .sidebar-icon .icon-label {
-        font-size: 10px;
+        font-size: var(--font-size-xs);
         display: block;
         flex: none;
     }
@@ -1898,7 +1932,7 @@
     }
 
     .section-title {
-        font-size: 16px;
+        font-size: var(--font-size-lg);
     }
 
     .summary-bar {
@@ -1912,7 +1946,7 @@
     }
 
     .summary-value {
-        font-size: 20px;
+        font-size: var(--font-size-2xl);
     }
 
     .content-body {
@@ -1940,11 +1974,11 @@
     }
 
     .summary-label {
-        font-size: 11px;
+        font-size: var(--font-size-xs);
     }
 
     .summary-value {
-        font-size: 18px;
+        font-size: var(--font-size-xl);
     }
 }
 /* ==================== 炫耀卡片样式 ==================== */
@@ -1952,11 +1986,11 @@
 .showoff-modal.active { display: flex; }
 .showoff-card { width: 375px; height: 667px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1); animation: cardSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes cardSlideUp { from { opacity: 0; transform: translateY(50px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.showoff-close { position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.7); font-size: 18px; cursor: pointer; z-index: 10; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
+.showoff-close { position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.7); font-size: var(--font-size-xl); cursor: pointer; z-index: 10; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
 .showoff-close:hover { background: rgba(255, 255, 255, 0.2); color: white; transform: scale(1.1); }
 .showoff-brand-corner { position: absolute; top: 16px; left: 16px; z-index: 10; display: flex; align-items: center; gap: 6px; }
 .brand-logo { width: 20px; height: 20px; }
-.brand-name { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.6); }
+.brand-name { font-size: var(--font-size-sm); font-weight: 600; color: rgba(255, 255, 255, 0.6); }
 .showoff-bg-decoration { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; }
 .bg-circle { position: absolute; border-radius: 50%; background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); filter: blur(40px); animation: float 8s ease-in-out infinite; }
 .circle-1 { width: 200px; height: 200px; top: -50px; right: -50px; animation-delay: 0s; }
@@ -1966,10 +2000,10 @@
 .bg-stars { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.3), transparent), radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.2), transparent), radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.4), transparent), radial-gradient(2px 2px at 130px 80px, rgba(255, 255, 255, 0.2), transparent), radial-gradient(1px 1px at 160px 30px, rgba(255, 255, 255, 0.3), transparent), radial-gradient(2px 2px at 200px 60px, rgba(255, 255, 255, 0.2), transparent), radial-gradient(1px 1px at 250px 90px, rgba(255, 255, 255, 0.3), transparent), radial-gradient(2px 2px at 300px 40px, rgba(255, 255, 255, 0.2), transparent), radial-gradient(1px 1px at 340px 70px, rgba(255, 255, 255, 0.4), transparent); animation: twinkle 4s ease-in-out infinite; }
 @keyframes twinkle { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 .showoff-header { position: relative; z-index: 1; text-align: center; padding: 25px 20px 12px; }
-.showoff-icon { font-size: 48px; margin-bottom: 10px; animation: bounce 2s ease-in-out infinite; }
+.showoff-icon { font-size: var(--font-size-5xl); margin-bottom: 10px; animation: bounce 2s ease-in-out infinite; }
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-.showoff-title { font-size: 28px; font-weight: 700; color: white; margin: 0 0 8px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.showoff-date { font-size: 14px; color: rgba(255, 255, 255, 0.5); font-family: var(--font-mono); margin: 0; }
+.showoff-title { font-size: var(--font-size-4xl); font-weight: 700; color: white; margin: 0 0 8px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.showoff-date { font-size: var(--font-size-md); color: rgba(255, 255, 255, 0.5); font-family: var(--font-mono); margin: 0; }
 .showoff-summary { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px 20px; }
 .showoff-summary .summary-row { display: flex; gap: 10px; }
 .showoff-summary .summary-row-total { justify-content: center; }
@@ -1978,23 +2012,35 @@
 .showoff-summary .summary-row:not(.summary-row-total) .summary-item { flex: 1; max-width: 140px; }
 .showoff-summary .summary-item { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 14px 12px; text-align: center; backdrop-filter: blur(10px); transition: all 0.3s ease; }
 .showoff-summary .summary-item:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); }
-.showoff-summary .summary-label { font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-.showoff-summary .summary-value { font-size: 16px; font-weight: 700; color: white; font-family: var(--font-mono); }
+.showoff-summary .summary-label { font-size: var(--font-size-xs); color: rgba(255, 255, 255, 0.5); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.showoff-summary .summary-value { font-size: var(--font-size-lg); font-weight: 700; color: white; font-family: var(--font-mono); }
 .showoff-summary .summary-value.positive { color: #ff4757; }
 .showoff-summary .summary-value.negative { color: #2ed573; }
 .showoff-funds { position: relative; z-index: 1; padding: 0 20px; }
 .funds-header { display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-.funds-title { font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, 0.6); }
+.funds-title { font-size: var(--font-size-md); font-weight: 600; color: rgba(255, 255, 255, 0.6); }
 .funds-list { display: flex; flex-direction: column; gap: 10px; }
 .fund-item { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; backdrop-filter: blur(10px); transition: all 0.2s ease; }
 .fund-item:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(102, 126, 234, 0.3); }
-.fund-rank { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.fund-rank { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-md); font-weight: 700; flex-shrink: 0; }
 .fund-item:nth-child(1) .fund-rank { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #1a1a2e; }
 .fund-item:nth-child(2) .fund-rank { background: linear-gradient(135deg, #c0c0c0, #a0a0a0); color: #1a1a2e; }
 .fund-item:nth-child(3) .fund-rank { background: linear-gradient(135deg, #cd7f32, #b87333); color: #1a1a2e; }
 .fund-info { flex: 1; min-width: 0; }
-.fund-name { font-size: 14px; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fund-gain { font-size: 14px; font-weight: 700; font-family: var(--font-mono); white-space: nowrap; }
+.fund-name { font-size: var(--font-size-md); font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fund-gain { font-size: var(--font-size-md); font-weight: 700; font-family: var(--font-mono); white-space: nowrap; }
 .fund-gain.positive { color: #ff4757; }
 .fund-gain.negative { color: #2ed573; }
 @media (max-width: 400px) { .showoff-card { width: calc(100vw - 40px); height: calc((100vw - 40px) * 667 / 375); } }
+
+/* 统一字体大小工具类（与 :root 变量一致，便于 class 使用） */
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-base { font-size: var(--font-size-base); }
+.text-md { font-size: var(--font-size-md); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+.text-2xl { font-size: var(--font-size-2xl); }
+.text-3xl { font-size: var(--font-size-3xl); }
+.text-4xl { font-size: var(--font-size-4xl); }
+.text-5xl { font-size: var(--font-size-5xl); }
