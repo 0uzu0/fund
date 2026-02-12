@@ -2,8 +2,6 @@ import os
 
 os.makedirs("cache", exist_ok=True)
 
-import importlib
-
 from dotenv import load_dotenv
 from flask import Flask
 
@@ -29,8 +27,16 @@ db = Database()
 
 
 def get_lan_fund(user_id=None):
-    """创建 LanFund 实例（统一 reload 与构造）。user_id 为 None 时使用文件模式。"""
-    importlib.reload(fund)
+    """
+    创建 LanFund 实例（统一构造）。
+    user_id 为 None 时使用文件模式。
+    
+    注意：移除了 importlib.reload，因为：
+    1. 每次请求都 reload 模块效率低
+    2. 可能导致状态不一致
+    3. 生产环境通常不需要热重载
+    如需热重载，应在开发环境使用专门的开发服务器
+    """
     return fund.LanFund(user_id=user_id, db=db)
 
 

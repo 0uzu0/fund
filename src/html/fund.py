@@ -100,7 +100,16 @@ def enhance_fund_tab_content(content, shares_map=None, groups=None, use_empty_ta
         </div>
 
         <div id="fundDetailsSummary" class="fund-details-summary" style="display: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0; font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main);">📊 持有基金</h3>
+            <h3 style="margin: 0 0 15px 0; font-size: var(--font-size-lg); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;">
+                <span>📊 持有基金</span>
+                <button id="refreshFundDataBtn" onclick="refreshAllFundData()" title="刷新所有数据"
+                        style="background: var(--accent); border: none; border-radius: 6px; padding: 6px 12px;
+                               color: white; font-size: var(--font-size-sm); font-weight: 500; cursor: pointer;
+                               display: flex; align-items: center; gap: 6px; transition: opacity 0.2s;">
+                    <span>🔄</span>
+                    <span>刷新</span>
+                </button>
+            </h3>
             <div style="overflow-x: auto;">
                 <table id="fundDetailsTable" style="width: 100%; min-width: 700px; border-collapse: collapse; table-layout: auto; white-space: nowrap;">
                     <thead>
@@ -811,26 +820,13 @@ def get_full_page_html_sidebar(tabs_data, username=None):
                 </div>
                 <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
                     <span style="font-size: var(--font-size-base); color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
-                    <span style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
+                    <span style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionHoldingUnits" style="font-weight: 500; margin-left: 4px;"></span>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓份额</label>
                     <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
-                        <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
-                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
+                        <input type="number" id="reducePositionUnits" step="0.01" min="0" placeholder="请输入减仓份额" style="flex: 1; padding: 10px 12px; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);">
                     </div>
-                </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
-                    </div>
-                </div>
-                <div style="margin-bottom: 12px; font-size: var(--font-size-sm); color: var(--text-dim);">
-                    估算手续费 <span id="reducePositionFee">0.00</span> 元
                 </div>
                 <div style="margin-bottom: 12px;">
                     <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>

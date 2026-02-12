@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 import json
+import os
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -10,6 +11,9 @@ from loguru import logger
 
 class Database:
     def __init__(self, db_path="cache/fund_data.db"):
+        # 确保缓存目录存在
+        db_dir = os.path.dirname(db_path) or "cache"
+        os.makedirs(db_dir, exist_ok=True)
         self.db_path = db_path
         self.init_database()
 

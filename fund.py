@@ -17,6 +17,7 @@ from tabulate import tabulate
 
 from src.ai_analyzer import AIAnalyzer
 from src.config import setup_urllib3_ssl
+from src.constants import MAJOR_CATEGORIES
 from src.module_html import get_table_html
 
 # 加载环境变量与网络配置
@@ -63,7 +64,10 @@ class ClientConfig:
                 'password': password,
                 'last_sync': None
             }
-            os.makedirs("cache", exist_ok=True)
+            # 确保缓存目录存在
+            config_dir = os.path.dirname(cls.CONFIG_FILE)
+            if config_dir:
+                os.makedirs(config_dir, exist_ok=True)
             with open(cls.CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=4)
             logger.info(f"配置已保存到 {cls.CONFIG_FILE}")
@@ -130,41 +134,13 @@ class ClientConfig:
 
 
 class LanFund:
-    CACHE_MAP = {}
-
-    # 板块分类映射
-    MAJOR_CATEGORIES = {
-        "科技": ["人工智能", "半导体", "云计算", "5G", "光模块", "CPO", "F5G", "通信设备", "PCB", "消费电子",
-                 "计算机", "软件开发", "信创", "网络安全", "IT服务", "国产软件", "计算机设备", "光通信",
-                 "算力", "脑机接口", "通信", "电子", "光学光电子", "元件", "存储芯片", "第三代半导体",
-                 "光刻胶", "电子化学品", "LED", "毫米波", "智能穿戴", "东数西算", "数据要素", "国资云",
-                 "Web3.0", "AIGC", "AI应用", "AI手机", "AI眼镜", "DeepSeek", "TMT", "科技"],
-        "医药健康": ["医药生物", "医疗器械", "生物疫苗", "CRO", "创新药", "精准医疗", "医疗服务", "中药",
-                     "化学制药", "生物制品", "基因测序", "超级真菌"],
-        "消费": ["食品饮料", "白酒", "家用电器", "纺织服饰", "商贸零售", "新零售", "家居用品", "文娱用品",
-                 "婴童", "养老产业", "体育", "教育", "在线教育", "社会服务", "轻工制造", "新消费",
-                 "可选消费", "消费", "家电零部件", "智能家居"],
-        "金融": ["银行", "证券", "保险", "非银金融", "国有大型银行", "股份制银行", "城商行", "金融"],
-        "能源": ["新能源", "煤炭", "石油石化", "电力", "绿色电力", "氢能源", "储能", "锂电池", "电池",
-                 "光伏设备", "风电设备", "充电桩", "固态电池", "能源", "煤炭开采", "公用事业", "锂矿"],
-        "工业制造": ["机械设备", "汽车", "新能源车", "工程机械", "高端装备", "电力设备", "专用设备",
-                     "通用设备", "自动化设备", "机器人", "人形机器人", "汽车零部件", "汽车服务",
-                     "汽车热管理", "尾气治理", "特斯拉", "无人驾驶", "智能驾驶", "电网设备", "电机",
-                     "高端制造", "工业4.0", "工业互联", "低空经济", "通用航空"],
-        "材料": ["有色金属", "黄金股", "贵金属", "基础化工", "钢铁", "建筑材料", "稀土永磁", "小金属",
-                 "工业金属", "材料", "大宗商品", "资源"],
-        "军工": ["国防军工", "航天装备", "航空装备", "航海装备", "军工电子", "军民融合", "商业航天",
-                 "卫星互联网", "航母", "航空机场"],
-        "基建地产": ["建筑装饰", "房地产", "房地产开发", "房地产服务", "交通运输", "物流"],
-        "环保": ["环保", "环保设备", "环境治理", "垃圾分类", "碳中和", "可控核聚变", "液冷"],
-        "传媒": ["传媒", "游戏", "影视", "元宇宙", "超清视频", "数字孪生"],
-        "主题": ["国企改革", "一带一路", "中特估", "中字头", "并购重组", "华为", "新兴产业",
-                 "国家安防", "安全主题", "农牧主题", "农林牧渔", "养殖业", "猪肉", "高端装备"]
-    }
+    # 板块分类映射（从统一配置导入）
+    MAJOR_CATEGORIES = MAJOR_CATEGORIES
 
     def __init__(self, user_id=None, db=None):
         self.user_id = user_id  # 用户ID，如果为None则使用文件模式
         self.db = db  # 数据库实例，从外部传入
+        self.CACHE_MAP = {}  # 实例变量，每个实例独立
 
         self.session = requests.Session()
         self.baidu_session = curl_requests.Session(impersonate="chrome")
@@ -185,9 +161,15 @@ class LanFund:
         }
         self._csrf = ""
         self.report_dir = None  # 默认不输出报告文件（需通过 -o 参数指定）
+        self._ensure_cache_dir()
         self.load_cache()
         self.init()
         self.result = []
+
+    @staticmethod
+    def _ensure_cache_dir():
+        """确保缓存目录存在"""
+        os.makedirs("cache", exist_ok=True)
 
     def load_cache(self):
         """加载缓存数据，优先从服务器获取，否则从本地加载"""
@@ -206,13 +188,25 @@ class LanFund:
         if self.user_id is not None and self.db is not None:
             self.CACHE_MAP = self.db.get_user_funds(self.user_id)
         else:
-            if not os.path.exists("cache"):
-                os.mkdir("cache")
-            if os.path.exists("cache/fund_map.json"):
-                with open("cache/fund_map.json", "r", encoding="gbk") as f:
-                    self.CACHE_MAP = json.load(f)
-        # if self.CACHE_MAP:
-        #     logger.debug(f"加载 {len(self.CACHE_MAP)} 个基金代码缓存成功")
+            cache_file = "cache/fund_map.json"
+            if os.path.exists(cache_file):
+                try:
+                    # 统一使用 UTF-8 编码，兼容旧文件可能是 GBK 的情况
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        self.CACHE_MAP = json.load(f)
+                except UnicodeDecodeError:
+                    # 如果 UTF-8 失败，尝试 GBK（兼容旧文件）
+                    try:
+                        with open(cache_file, "r", encoding="gbk") as f:
+                            self.CACHE_MAP = json.load(f)
+                        # 转换后保存为 UTF-8
+                        self.save_cache()
+                    except Exception as e:
+                        logger.error(f"加载缓存文件失败: {e}")
+                        self.CACHE_MAP = {}
+                except Exception as e:
+                    logger.error(f"加载缓存文件失败: {e}")
+                    self.CACHE_MAP = {}
 
     def save_cache(self):
         """保存缓存数据，优先同步到服务器"""
@@ -228,8 +222,14 @@ class LanFund:
         if self.user_id is not None and self.db is not None:
             self.db.save_user_funds(self.user_id, self.CACHE_MAP)
         else:
-            with open("cache/fund_map.json", "w", encoding="gbk") as f:
-                json.dump(self.CACHE_MAP, f, ensure_ascii=False, indent=4)
+            self._ensure_cache_dir()
+            cache_file = "cache/fund_map.json"
+            try:
+                # 统一使用 UTF-8 编码保存
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(self.CACHE_MAP, f, ensure_ascii=False, indent=4)
+            except Exception as e:
+                logger.error(f"保存缓存文件失败: {e}")
 
     def _load_from_server(self):
         """从服务器加载配置"""

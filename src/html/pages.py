@@ -2587,26 +2587,13 @@ def get_portfolio_page_html(fund_content, fund_map, fund_chart_data=None, fund_c
                 </div>
                 <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--border); border-radius: 8px;">
                     <span style="font-size: var(--font-size-base); color: var(--text-dim);">当前净值</span><span id="reducePositionNetValue" style="font-weight: 600; color: var(--text-main); margin-left: 8px;"></span>
-                    <span style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionUnits" style="font-weight: 500; margin-left: 4px;"></span>
+                    <span style="font-size: var(--font-size-sm); color: var(--text-dim); margin-left: 8px;">持有份额</span><span id="reducePositionHoldingUnits" style="font-weight: 500; margin-left: 4px;"></span>
                 </div>
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓金额（元）</label>
+                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">减仓份额</label>
                     <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);">
-                        <span style="padding: 10px 12px; color: var(--text-dim);">¥</span>
-                        <input type="number" id="reducePositionAmount" step="0.01" min="0" placeholder="请输入减仓金额" style="flex: 1; padding: 10px 0; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);" oninput="if(window.updateReducePositionFee) window.updateReducePositionFee()">
+                        <input type="number" id="reducePositionUnits" step="0.01" min="0" placeholder="请输入减仓份额" style="flex: 1; padding: 10px 12px; border: none; background: none; font-size: var(--font-size-md); color: var(--text-main);">
                     </div>
-                </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">卖出费率</label>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0" checked style="margin-right: 4px;">0%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="0.5" style="margin-right: 4px;">0.5%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1" style="margin-right: 4px;">1%</label>
-                        <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: var(--font-size-base); color: var(--text-main);"><input type="radio" name="reducePositionFeeRate" value="1.5" style="margin-right: 4px;">1.5%</label>
-                    </div>
-                </div>
-                <div style="margin-bottom: 12px; font-size: var(--font-size-sm); color: var(--text-dim);">
-                    估算手续费 <span id="reducePositionFee">0.00</span> 元
                 </div>
                 <div style="margin-bottom: 12px;">
                     <label style="display: block; font-size: var(--font-size-base); font-weight: 500; color: var(--text-main); margin-bottom: 6px;">原平台卖出时间</label>
@@ -3746,16 +3733,28 @@ def get_position_records_page_html(username=None, is_admin=False):
                         var actionCell = canUndo
                             ? '<button type="button" class="btn-undo" data-id="' + rec.id + '">撤销</button>'
                             : '<span class="btn-undo-disabled" title="已过撤销截止时间（当日15:00前操作须在当日15:00前撤销，当日15:00后操作须在次日15:00前撤销）">已过截止</span>';
+                        // 根据操作类型显示不同格式：减仓显示份额，加仓显示金额
+                        var amountCell = '';
+                        if (rec.op === 'reduce') {{
+                            // 减仓：显示份额 = prev_holding_units - new_holding_units
+                            var prevUnits = parseFloat(rec.prev_holding_units) || 0;
+                            var newUnits = parseFloat(rec.new_holding_units) || 0;
+                            var reduceUnits = Math.max(0, prevUnits - newUnits);
+                            amountCell = reduceUnits.toFixed(2) + '份';
+                        }} else {{
+                            // 加仓：显示金额
+                            amountCell = '¥' + (parseFloat(rec.amount) || 0).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
+                        }}
                         return '<tr data-id="' + rec.id + '">' +
                             '<td>' + (rec.fund_code || '—') + '</td>' +
                             '<td>' + (rec.fund_name || '—') + '</td>' +
                             '<td>' + formatDateTime(rec.created_at) + '</td>' +
                             '<td><span class="' + opClass + '">' + opText + '</span></td>' +
-                            '<td>¥' + (parseFloat(rec.amount) || 0).toLocaleString('zh-CN', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}) + '</td>' +
+                            '<td>' + amountCell + '</td>' +
                             '<td>' + actionCell + '</td>' +
                             '</tr>';
                     }}).join('');
-                    el.innerHTML = '<table class="records-table"><thead><tr><th>基金编号</th><th>基金名称</th><th>操作时间</th><th>操作方式</th><th>加减仓金额</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
+                    el.innerHTML = '<table class="records-table"><thead><tr><th>基金编号</th><th>基金名称</th><th>操作时间</th><th>操作方式</th><th>加减仓</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
                     el.querySelectorAll('.btn-undo').forEach(function(btn) {{
                         btn.addEventListener('click', function() {{
                             var id = btn.getAttribute('data-id');

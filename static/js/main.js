@@ -1071,6 +1071,68 @@
             }
         }
 
+        // 刷新所有基金数据
+        window.refreshAllFundData = async function() {
+            const refreshBtn = document.getElementById('refreshFundDataBtn');
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+                const originalHTML = refreshBtn.innerHTML;
+                refreshBtn.innerHTML = '<span>⏳</span><span>刷新中...</span>';
+                try {
+                    // 清除缓存，强制重新获取数据
+                    const cacheBuster = '?t=' + Date.now();
+                    
+                    // 重新加载份额数据并计算持仓统计
+                    await loadSharesData();
+                    
+                    // 刷新持仓统计（loadSharesData 内部会调用，但确保执行）
+                    if (typeof calculatePositionSummary === 'function') {
+                        calculatePositionSummary();
+                    }
+                    
+                    // 如果页面有基金列表表格，重新加载表格数据
+                    const fundTable = document.querySelector('.style-table');
+                    if (fundTable) {
+                        // 尝试调用页面特定的刷新函数
+                        if (typeof window.fetchPortfolioData === 'function') {
+                            await window.fetchPortfolioData();
+                        }
+                        // 重新获取基金列表数据（如果有API）
+                        try {
+                            const response = await fetch('/api/fund/data' + cacheBuster);
+                            if (response.ok) {
+                                const fundData = await response.json();
+                                // 触发表格重新渲染（如果页面有相关函数）
+                                if (typeof window.updateFundTable === 'function') {
+                                    window.updateFundTable(fundData);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('刷新基金列表失败:', e);
+                        }
+                    }
+                    
+                    // 刷新北京时间
+                    if (typeof fetchBeijingTime === 'function') {
+                        await fetchBeijingTime();
+                    }
+                    
+                    console.log('数据刷新完成');
+                } catch (e) {
+                    console.error('刷新数据失败:', e);
+                    alert('刷新失败: ' + e.message);
+                } finally {
+                    if (refreshBtn) {
+                        refreshBtn.disabled = false;
+                        refreshBtn.innerHTML = originalHTML;
+                    }
+                }
+            } else {
+                // 如果没有找到按钮，直接刷新页面
+                location.reload();
+            }
+        };
+
         // 页面加载时加载份额数据并计算持仓统计
         async function loadSharesData() {
             try {
@@ -1478,10 +1540,6 @@
             const r = document.querySelector('input[name="addPositionFeeRate"]:checked');
             return r ? parseFloat(r.value) / 100 : 0;
         }
-        function getReducePositionFeeRate() {
-            const r = document.querySelector('input[name="reducePositionFeeRate"]:checked');
-            return r ? parseFloat(r.value) / 100 : 0;
-        }
         window.updateAddPositionFee = function() {
             const amountInput = document.getElementById('addPositionAmount');
             const feeEl = document.getElementById('addPositionFee');
@@ -1490,17 +1548,8 @@
             const fee = amount * getAddPositionFeeRate();
             feeEl.textContent = fee.toFixed(2);
         };
-        window.updateReducePositionFee = function() {
-            const amountInput = document.getElementById('reducePositionAmount');
-            const feeEl = document.getElementById('reducePositionFee');
-            if (!feeEl) return;
-            const amount = parseFloat(amountInput && amountInput.value) || 0;
-            const fee = amount * getReducePositionFeeRate();
-            feeEl.textContent = fee.toFixed(2);
-        };
         document.body.addEventListener('change', function(e) {
             if (e.target && e.target.name === 'addPositionFeeRate') { window.updateAddPositionFee && window.updateAddPositionFee(); }
-            if (e.target && e.target.name === 'reducePositionFeeRate') { window.updateReducePositionFee && window.updateReducePositionFee(); }
         });
 
         window.openAddPositionTimePicker = function() {
@@ -1651,21 +1700,34 @@
             const nameEl = document.getElementById('reducePositionFundName');
             const codeEl = document.getElementById('reducePositionFundCode');
             const netEl = document.getElementById('reducePositionNetValue');
-            const unitsEl = document.getElementById('reducePositionUnits');
-            const amountInput = document.getElementById('reducePositionAmount');
+            const holdingUnitsEl = document.getElementById('reducePositionHoldingUnits');
+            const reduceUnitsInput = document.getElementById('reducePositionUnits');
             const timeText = document.getElementById('reducePositionTimeText');
             if (nameEl) nameEl.textContent = fund ? fund.name : '';
             if (codeEl) codeEl.textContent = fundCode || '';
             if (netEl && fund) netEl.textContent = fund.netValue != null ? fund.netValue.toFixed(4) : '--';
-            const units = hold ? (parseFloat(hold.holding_units) || 0) : (fund ? fund.holding_units : 0);
-            if (unitsEl) unitsEl.textContent = units.toFixed(2);
-            if (amountInput) amountInput.value = '';
+            // 优先使用 fundHoldingData 中的数据（最新），其次使用 fundDetailsData 中的数据
+            let units = 0;
+            if (hold && hold.holding_units != null) {
+                units = parseFloat(hold.holding_units) || 0;
+            } else if (fund && fund.holding_units != null) {
+                units = parseFloat(fund.holding_units) || 0;
+            }
+            if (holdingUnitsEl) holdingUnitsEl.textContent = units > 0 ? units.toFixed(2) : '0.00';
+            if (reduceUnitsInput) {
+                reduceUnitsInput.value = '';
+                // 监听份额输入，如果时间已选择则启用确认按钮
+                reduceUnitsInput.oninput = function() {
+                    const reduceConfirmBtn = modal.querySelector('#reducePositionConfirmBtn') || document.getElementById('reducePositionConfirmBtn');
+                    if (reduceConfirmBtn && currentReducePositionTimeValue && currentReducePositionTimeValue.date) {
+                        const unitsValue = parseFloat(reduceUnitsInput.value) || 0;
+                        reduceConfirmBtn.disabled = unitsValue <= 0;
+                    }
+                };
+            }
             if (timeText) timeText.textContent = '请选择时间';
             const reduceConfirmBtn = modal.querySelector('#reducePositionConfirmBtn') || document.getElementById('reducePositionConfirmBtn');
             if (reduceConfirmBtn) reduceConfirmBtn.disabled = true;
-            const feeRadios = document.querySelectorAll('input[name="reducePositionFeeRate"]');
-            if (feeRadios.length) feeRadios[0].checked = true;
-            window.updateReducePositionFee && window.updateReducePositionFee();
             modal.classList.add('active');
         };
 
@@ -1722,7 +1784,12 @@
                 timeText.textContent = str;
                 const reduceModal = document.querySelector('#reducePositionModal.active') || document.getElementById('reducePositionModal');
                 const reduceConfirmBtn = reduceModal ? reduceModal.querySelector('#reducePositionConfirmBtn') || document.getElementById('reducePositionConfirmBtn') : document.getElementById('reducePositionConfirmBtn');
-                if (reduceConfirmBtn) reduceConfirmBtn.disabled = false;
+                const reduceUnitsInput = document.getElementById('reducePositionUnits');
+                if (reduceConfirmBtn) {
+                    // 检查份额是否已填写
+                    const unitsValue = parseFloat(reduceUnitsInput && reduceUnitsInput.value) || 0;
+                    reduceConfirmBtn.disabled = unitsValue <= 0;
+                }
             }
             window.closeReducePositionTimePicker();
         };
@@ -1731,22 +1798,26 @@
             const reduceCode = currentReducePositionFundCode;
             if (!reduceCode) return;
             const reduceModal = document.querySelector('#reducePositionModal.active') || document.getElementById('reducePositionModal');
-            const amountInput = reduceModal ? (reduceModal.querySelector('#reducePositionAmount') || document.getElementById('reducePositionAmount')) : document.getElementById('reducePositionAmount');
-            const amount = parseFloat(amountInput && amountInput.value) || 0;
+            const unitsInput = reduceModal ? (reduceModal.querySelector('#reducePositionUnits') || document.getElementById('reducePositionUnits')) : document.getElementById('reducePositionUnits');
+            const reduceUnits = parseFloat(unitsInput && unitsInput.value) || 0;
             const hasTime = currentReducePositionTimeValue && currentReducePositionTimeValue.date;
-            if (amount <= 0 || !hasTime) {
-                alert(amount <= 0 && !hasTime ? '请填写减仓金额并选择卖出时间' : (amount <= 0 ? '请填写减仓金额' : '请选择卖出时间'));
+            if (reduceUnits <= 0 || !hasTime) {
+                alert(reduceUnits <= 0 && !hasTime ? '请填写减仓份额并选择卖出时间' : (reduceUnits <= 0 ? '请填写减仓份额' : '请选择卖出时间'));
                 return;
             }
             const fund = (window.fundDetailsData || []).find(f => f.code === reduceCode);
             const hold = window.fundHoldingData && window.fundHoldingData[reduceCode];
             const oldUnits = hold ? (parseFloat(hold.holding_units) || 0) : (fund ? fund.holding_units : 0);
             const oldCost = hold ? (parseFloat(hold.cost_per_unit) || 1) : (fund ? fund.cost_per_unit : 1);
-            const netValue = fund && fund.netValue != null ? fund.netValue : 1;
-            const reduceUnits = amount / netValue;
+            // 当日结算后净值（使用当前净值作为结算净值）
+            const settlementNetValue = fund && fund.netValue != null ? fund.netValue : 1;
+            // 新份额 = 原份额 - 减仓份额
             let newUnits = Math.max(0, oldUnits - reduceUnits);
             if (newUnits < 1e-6) newUnits = 0;
+            // 成本价保持不变
             const newCost = newUnits > 0 ? oldCost : 1;
+            // 计算减仓金额（用于记录）：减仓份额 × 当日结算后净值
+            const reduceAmount = reduceUnits * settlementNetValue;
             // 到账日：当天三点前 -> 次日到账(T+1)；当天三点后 -> 次日的第二天到账(T+2)
             const sellDate = (currentReducePositionTimeValue && currentReducePositionTimeValue.date) ? currentReducePositionTimeValue.date : new Date().toISOString().slice(0, 10);
             const isAfter15 = currentReducePositionTimeValue && currentReducePositionTimeValue.period === 'after15';
@@ -1760,7 +1831,7 @@
                         holding_units: newUnits,
                         cost_per_unit: newCost,
                         record_op: 'reduce',
-                        amount: amount,
+                        amount: reduceAmount,
                         trade_date: sellDate,
                         period: isAfter15 ? 'after15' : 'before15',
                         fund_name: fund ? fund.name : ''
@@ -1774,7 +1845,7 @@
                             return raw ? JSON.parse(raw) : [];
                         } catch (e) { return []; }
                     })();
-                    pendingReduces.push({ fundCode: reduceCode, amount: amount, settlementDate: settlementDate });
+                    pendingReduces.push({ fundCode: reduceCode, amount: reduceAmount, settlementDate: settlementDate });
                     try { localStorage.setItem('lan_fund_pending_reduces', JSON.stringify(pendingReduces)); } catch (e) { /* ignore */ }
                     applyHoldingAfterPositionChange(reduceCode, newUnits, newCost);
                     window.closeReducePositionModal();
